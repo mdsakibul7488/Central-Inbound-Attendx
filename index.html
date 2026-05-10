@@ -13,33 +13,61 @@
       --indigo:#4F46E5; --indigo-light:#EEF2FF;
       --bg:#F5F6FA; --surface:#FFFFFF; --border:#E8ECF2;
       --text:#111827; --text-sub:#6B7280;
-      --error:#EF4444; --success:#10B981; --amber:#F59E0B;
+      --error:#EF4444; --success:#10B981;
       --radius:18px; --radius-sm:12px;
       --shadow:0 2px 16px rgba(0,0,0,0.06);
     }
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
     body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
-    .app{max-width:430px;margin:0 auto;min-height:100vh;position:relative;}
+    .app{max-width:430px;margin:0 auto;min-height:100vh;}
     .screen{display:none;min-height:100vh;}
     .screen.active{display:flex;flex-direction:column;animation:fadeUp 0.28s ease;}
     @keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+    @keyframes glowPulse{0%,100%{box-shadow:0 0 0 3px #9FE1CB,0 0 10px #9FE1CB60;}50%{box-shadow:0 0 0 4px #9FE1CB,0 0 20px #9FE1CB90;}}
+    @keyframes glowPulseAmber{0%,100%{box-shadow:0 0 0 3px #FAC775,0 0 10px #FAC77560;}50%{box-shadow:0 0 0 4px #FAC775,0 0 20px #FAC77590;}}
 
     /* SPLASH */
     #screen-splash{background:#0A0A0A;align-items:center;justify-content:center;}
-    .splash-logo{text-align:center;animation:splashIn 0.7s ease;}
+    .splash-logo{animation:splashIn 0.7s ease;}
     @keyframes splashIn{from{opacity:0;transform:scale(0.85);}to{opacity:1;transform:scale(1);}}
     .splash-logo img{width:270px;max-width:80vw;}
 
-    /* AUTH */
-    .auth-header{background:var(--red);padding:52px 24px 36px;position:relative;overflow:hidden;flex-shrink:0;}
-    .auth-header.indigo{background:var(--indigo);}
-    .auth-header::after{content:'';position:absolute;bottom:-28px;left:0;right:0;height:56px;background:var(--bg);border-radius:50% 50% 0 0 / 56px 56px 0 0;}
-    .auth-logo-sm{display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
-    .auth-logo-sm img{width:44px;height:44px;object-fit:contain;border-radius:10px;background:white;padding:4px;}
-    .auth-title{text-align:center;font-size:22px;font-weight:700;color:white;position:relative;z-index:1;}
-    .auth-sub{text-align:center;font-size:13px;color:rgba(255,255,255,0.75);margin-top:4px;position:relative;z-index:1;}
+    /* AUTH HEADER */
+    .auth-header{padding:52px 24px 36px;position:relative;overflow:hidden;flex-shrink:0;}
+    .auth-header.red-bg{background:var(--red);}
+    .auth-header.indigo-bg{background:var(--indigo);}
+    .auth-header::after{content:'';position:absolute;bottom:-28px;left:0;right:0;height:56px;background:var(--bg);border-radius:50% 50% 0 0/56px 56px 0 0;}
+    .auth-header-content{display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;}
+    .auth-logo-sm{width:52px;height:52px;object-fit:contain;border-radius:12px;background:white;padding:5px;margin-bottom:10px;}
+    .auth-app-name{font-size:15px;font-weight:700;color:white;letter-spacing:0.3px;margin-bottom:4px;}
+    .auth-title{font-size:22px;font-weight:700;color:white;}
+    .auth-sub{font-size:13px;color:rgba(255,255,255,0.75);margin-top:4px;}
     .auth-body{padding:36px 24px 28px;flex:1;overflow-y:auto;}
 
+    /* DASHBOARD HEADER */
+    .dash-header{padding:52px 20px 24px;position:relative;overflow:hidden;background:var(--red);}
+    .dash-header::after{content:'';position:absolute;bottom:-24px;left:0;right:0;height:48px;background:var(--bg);border-radius:50%;}
+    .dash-header-logo{height:28px;object-fit:contain;margin-bottom:10px;filter:brightness(0) invert(1);opacity:0.9;}
+    .dash-greeting{font-size:12px;color:rgba(255,255,255,0.75);margin-bottom:2px;}
+    .dash-name{font-size:20px;font-weight:700;color:white;}
+    .dash-eid{font-size:12px;color:rgba(255,255,255,0.65);margin-top:2px;}
+    .avatar-wrap{position:relative;cursor:pointer;}
+    .avatar-circle{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;color:white;}
+    .avatar-gear{position:absolute;bottom:-1px;right:-1px;width:18px;height:18px;border-radius:50%;background:var(--red-dark);border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:10px;color:white;}
+
+    /* ADMIN HEADER */
+    .admin-header{padding:52px 20px 20px;position:relative;overflow:hidden;background:var(--indigo);}
+    .admin-header::after{content:'';position:absolute;bottom:-24px;left:0;right:0;height:48px;background:var(--bg);border-radius:50%;}
+    .admin-header-logo{height:24px;object-fit:contain;margin-bottom:8px;filter:brightness(0) invert(1);opacity:0.85;}
+    .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:14px;}
+    .stat-box{background:rgba(255,255,255,0.15);border-radius:10px;padding:8px 10px;}
+    .stat-box.full{grid-column:1/-1;}
+    .stat-label{font-size:10px;color:rgba(255,255,255,0.7);margin-bottom:2px;}
+    .stat-val{font-size:16px;font-weight:700;color:white;}
+    .stat-val.green{color:#86EFAC;} .stat-val.red{color:#FCA5A5;} .stat-val.yellow{color:#FDE68A;} .stat-val.orange{color:#FDBA74;}
+    .admin-body{padding:32px 16px 24px;flex:1;overflow-y:auto;}
+
+    /* SHARED */
     .card{background:var(--surface);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);border:1px solid var(--border);}
     .lang-switch{display:flex;background:#F0F1F5;border-radius:10px;padding:3px;margin-bottom:20px;}
     .lang-btn{flex:1;padding:7px;border:none;background:transparent;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;color:var(--text-sub);font-family:'Inter',sans-serif;transition:all 0.2s;}
@@ -54,8 +82,6 @@
     .btn{width:100%;padding:14px;border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all 0.18s;}
     .btn:active{transform:scale(0.98);}
     .btn-red{background:var(--red);color:white;box-shadow:0 4px 14px rgba(232,25,44,0.28);}
-    .btn-red:hover{background:var(--red-dark);}
-    .btn-green{background:var(--green);color:white;box-shadow:0 4px 14px rgba(0,200,150,0.25);}
     .btn-ghost{background:#F0F1F5;color:var(--text);margin-top:10px;border:1.5px solid var(--border);}
     .btn-indigo{background:var(--indigo);color:white;box-shadow:0 4px 14px rgba(79,70,229,0.25);}
     .switch-row{text-align:center;margin-top:20px;font-size:13px;color:var(--text-sub);}
@@ -64,39 +90,7 @@
     .toast.show{transform:translateX(-50%) translateY(0);}
     .toast.success{background:var(--success);}
     .toast.error{background:var(--error);}
-
-    /* DASHBOARD */
-    #screen-dashboard{background:var(--bg);position:relative;}
-    .dash-watermark{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:260px;opacity:0.04;pointer-events:none;z-index:0;}
-    .dash-content{position:relative;z-index:1;flex:1;overflow-y:auto;}
-    .dash-header{background:var(--red);padding:52px 20px 24px;position:relative;overflow:hidden;}
-    .dash-header::after{content:'';position:absolute;bottom:-24px;left:0;right:0;height:48px;background:var(--bg);border-radius:50%;}
-    .dash-greeting{font-size:12px;color:rgba(255,255,255,0.75);margin-bottom:2px;}
-    .dash-name{font-size:20px;font-weight:700;color:white;}
-    .dash-eid{font-size:12px;color:rgba(255,255,255,0.65);margin-top:2px;}
-    .avatar-wrap{position:relative;cursor:pointer;}
-    .avatar-circle{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;color:white;overflow:hidden;}
-    .avatar-circle img{width:100%;height:100%;object-fit:cover;}
-    .avatar-gear{position:absolute;bottom:-1px;right:-1px;width:18px;height:18px;border-radius:50%;background:var(--red-dark);border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:10px;color:white;}
-
-    /* CIRCLE BUTTONS */
-    .checkin-area{display:flex;flex-direction:column;align-items:center;gap:16px;padding:16px 0 20px;}
     .circle-btn-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;}
-    .circle-btn{width:92px;height:92px;border-radius:50%;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:transform 0.15s;border:none;gap:4px;}
-    .circle-btn:active{transform:scale(0.93);}
-    .circle-btn.checkin-btn{box-shadow:0 0 0 3px #9FE1CB,0 0 20px rgba(0,200,150,0.18);}
-    .circle-btn.checkin-btn.done{box-shadow:0 0 0 3px #D1D5DB;opacity:0.45;cursor:default;}
-    .circle-btn.checkout-btn{box-shadow:0 0 0 3px #FAC775,0 0 20px rgba(245,158,11,0.18);}
-    .circle-btn.checkout-btn.done{box-shadow:0 0 0 3px #D1D5DB;opacity:0.45;cursor:default;}
-    .circle-icon{font-size:24px;}
-    .circle-label{font-size:11px;font-weight:600;}
-    .circle-sub{font-size:10px;color:var(--text-sub);}
-
-    /* STATUS CARD */
-    .status-card{margin:32px 16px 14px;}
-    .section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
-    .section-title{font-size:12px;font-weight:600;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.5px;}
-    .view-all-btn{font-size:12px;color:var(--red);font-weight:600;cursor:pointer;background:none;border:none;font-family:'Inter',sans-serif;}
     .day-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);}
     .day-row:last-child{border-bottom:none;}
     .status-pill{font-size:11px;font-weight:600;padding:3px 11px;border-radius:20px;}
@@ -104,43 +98,16 @@
     .pill-absent{background:#FCEBEB;color:#A32D2D;}
     .pill-dayoff{background:#EAF3DE;color:#3B6D11;}
     .pill-exchange{background:#E6F1FB;color:#185FA5;}
-
-    /* ADMIN */
-    .admin-header{background:var(--indigo);padding:52px 20px 20px;position:relative;overflow:hidden;}
-    .admin-header::after{content:'';position:absolute;bottom:-24px;left:0;right:0;height:48px;background:var(--bg);border-radius:50%;}
-    .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:14px;}
-    .stat-box{background:rgba(255,255,255,0.15);border-radius:10px;padding:8px 10px;}
-    .stat-box.full{grid-column:1/-1;}
-    .stat-label{font-size:10px;color:rgba(255,255,255,0.7);margin-bottom:2px;}
-    .stat-val{font-size:16px;font-weight:700;color:white;}
-    .stat-val.green{color:#86EFAC;}
-    .stat-val.red{color:#FCA5A5;}
-    .stat-val.yellow{color:#FDE68A;}
-    .stat-val.orange{color:#FDBA74;}
-    .admin-body{padding:32px 16px 24px;flex:1;overflow-y:auto;}
-    .filter-bar{display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:var(--radius-sm);padding:11px 14px;border:1px solid var(--border);cursor:pointer;margin-bottom:12px;}
+    .view-all-btn{font-size:12px;color:var(--red);font-weight:600;cursor:pointer;background:none;border:none;font-family:'Inter',sans-serif;}
+    .filter-bar{display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:var(--radius-sm);padding:11px 14px;border:1px solid var(--border);cursor:pointer;margin-bottom:12px;position:relative;}
     .emp-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
     .emp-row:last-child{border-bottom:none;}
-    .emp-avatar-sm{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0;overflow:hidden;}
-    .emp-avatar-sm img{width:100%;height:100%;object-fit:cover;}
-
-    /* SETTINGS */
-    .settings-header{background:var(--red);padding:52px 20px 36px;position:relative;overflow:hidden;}
-    .settings-header::after{content:'';position:absolute;bottom:-24px;left:0;right:0;height:48px;background:var(--bg);border-radius:50%;}
-    .settings-body{padding:32px 16px 24px;flex:1;overflow-y:auto;}
-
-    /* MONTH TABS */
     .month-tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;}
     .month-tab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;border:1.5px solid var(--border);background:var(--surface);color:var(--text-sub);font-family:'Inter',sans-serif;}
     .month-tab.active{background:var(--red);color:white;border-color:var(--red);}
-
-    /* ADMIN DROPDOWN */
-    .shield-dropdown{position:absolute;top:46px;right:0;background:var(--surface);border-radius:var(--radius-sm);border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,0.12);padding:6px;min-width:160px;z-index:100;display:none;}
-    .shield-dropdown.open{display:block;}
-    .drop-item{padding:9px 12px;border-radius:8px;font-size:13px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:8px;}
-    .drop-item:hover{background:var(--bg);}
-
     .saved-acc-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius-sm);background:var(--bg);margin-bottom:6px;cursor:pointer;border:1px solid var(--border);}
+    .settings-header{background:var(--red);padding:52px 20px 36px;position:relative;overflow:hidden;}
+    .settings-header::after{content:'';position:absolute;bottom:-24px;left:0;right:0;height:48px;background:var(--bg);border-radius:50%;}
   </style>
 </head>
 <body>
@@ -148,25 +115,43 @@
 
   <!-- SPLASH -->
   <div class="screen active" id="screen-splash">
-    <div class="splash-logo"><img src="logo.png" alt="Pathao" /></div>
+    <div style="background:#0A0A0A;flex:1;display:flex;align-items:center;justify-content:center;">
+      <div class="splash-logo"><img src="logo.png" alt="Pathao" /></div>
+    </div>
   </div>
 
   <!-- SIGNUP -->
   <div class="screen" id="screen-signup">
-    <div class="auth-header">
-      <div class="auth-logo-sm"><img src="logo.png" alt="Pathao" /></div>
-      <div class="auth-title">Create Account</div>
-      <div class="auth-sub">Join Pathao Attendance</div>
+    <div class="auth-header red-bg">
+      <div class="auth-header-content">
+        <img src="logo.png" class="auth-logo-sm" alt="Pathao" />
+        <div class="auth-app-name">Central Inbound AttendX</div>
+        <div class="auth-title">Create Account</div>
+        <div class="auth-sub">Join Pathao Attendance</div>
+      </div>
     </div>
     <div class="auth-body">
       <div class="lang-switch">
         <button class="lang-btn active" onclick="setLang('en')">English</button>
         <button class="lang-btn" onclick="setLang('bn')">বাংলা</button>
       </div>
-      <div class="field"><label id="lbl-name">Full Name</label><input type="text" id="signup-name" placeholder="e.g. Sakibul Islam" /><div class="field-error" id="err-name"></div></div>
-      <div class="field"><label id="lbl-eid">Employee ID</label><input type="text" id="signup-eid" placeholder="C 00000" maxlength="7" /><div class="field-hint" id="hint-eid">Format: C space 5 digits</div><div class="field-error" id="err-eid"></div></div>
-      <div class="field"><label id="lbl-pass">Password</label><input type="password" id="signup-pass" placeholder="Min 8 chars, letters + numbers" /><div class="field-error" id="err-pass"></div></div>
-      <div class="field"><label id="lbl-pin">4-Digit PIN</label><input type="password" id="signup-pin" placeholder="••••" maxlength="4" inputmode="numeric" /><div class="field-hint" id="hint-pin">Used when fingerprint unavailable</div><div class="field-error" id="err-pin"></div></div>
+      <div class="field"><label id="lbl-name">Full Name</label><input type="text" id="signup-name" placeholder="e.g. Sakibul Islam"/><div class="field-error" id="err-name"></div></div>
+      <div class="field"><label id="lbl-eid">Employee ID</label><input type="text" id="signup-eid" placeholder="C 00001 / S 0001 / M 000001" maxlength="8"/><div class="field-hint" id="hint-eid">C, S or M + space + 4-6 digits</div><div class="field-error" id="err-eid"></div></div>
+      <div class="field"><label id="lbl-pass">Password</label>
+        <div style="position:relative;">
+          <input type="password" id="signup-pass" placeholder="Min 8 chars, letters + numbers" style="padding-right:44px;"/>
+          <button onclick="togglePass('signup-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
+        </div>
+        <div class="field-error" id="err-pass"></div>
+      </div>
+      <div class="field"><label id="lbl-pin">4-Digit PIN</label>
+        <div style="position:relative;">
+          <input type="password" id="signup-pin" placeholder="••••" maxlength="4" inputmode="numeric" style="padding-right:44px;"/>
+          <button onclick="togglePass('signup-pin',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
+        </div>
+        <div class="field-hint" id="hint-pin">Used when fingerprint unavailable</div>
+        <div class="field-error" id="err-pin"></div>
+      </div>
       <button class="btn btn-red" onclick="doSignup()" id="btn-signup">Create Account</button>
       <div class="switch-row"><span id="lbl-have-acc">Already have an account?</span> <a onclick="showScreen('screen-login')" id="lbl-go-login">Sign in</a></div>
       <div style="text-align:center;margin-top:16px;"><a onclick="showScreen('screen-admin-login')" style="font-size:12px;color:var(--text-sub);cursor:pointer;text-decoration:underline;">Admin Panel →</a></div>
@@ -175,18 +160,27 @@
 
   <!-- LOGIN -->
   <div class="screen" id="screen-login">
-    <div class="auth-header">
-      <div class="auth-logo-sm"><img src="logo.png" alt="Pathao" /></div>
-      <div class="auth-title">Welcome Back</div>
-      <div class="auth-sub">Sign in to continue</div>
+    <div class="auth-header red-bg">
+      <div class="auth-header-content">
+        <img src="logo.png" class="auth-logo-sm" alt="Pathao" />
+        <div class="auth-app-name">Central Inbound AttendX</div>
+        <div class="auth-title">Welcome Back</div>
+        <div class="auth-sub">Sign in to continue</div>
+      </div>
     </div>
     <div class="auth-body">
       <div class="lang-switch">
         <button class="lang-btn active" onclick="setLang('en')">English</button>
         <button class="lang-btn" onclick="setLang('bn')">বাংলা</button>
       </div>
-      <div class="field"><label id="lbl-login-eid">Employee ID</label><input type="text" id="login-eid" placeholder="C 00000" maxlength="7" /><div class="field-error" id="err-login-eid"></div></div>
-      <div class="field"><label id="lbl-login-pass">Password</label><input type="password" id="login-pass" placeholder="Your password" /><div class="field-error" id="err-login-pass"></div></div>
+      <div class="field"><label id="lbl-login-eid">Employee ID</label><input type="text" id="login-eid" placeholder="C 00001 / S 0001 / M 000001" maxlength="8"/><div class="field-error" id="err-login-eid"></div></div>
+      <div class="field"><label id="lbl-login-pass">Password</label>
+        <div style="position:relative;">
+          <input type="password" id="login-pass" placeholder="Your password" style="padding-right:44px;"/>
+          <button onclick="togglePass('login-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
+        </div>
+        <div class="field-error" id="err-login-pass"></div>
+      </div>
       <button class="btn btn-red" onclick="doLogin()" id="btn-login">Sign In</button>
       <div class="switch-row"><span id="lbl-no-acc">Don't have an account?</span> <a onclick="showScreen('screen-signup')" id="lbl-go-signup">Sign up</a></div>
       <div id="saved-accounts-wrap" style="display:none;margin-top:18px;">
@@ -199,14 +193,23 @@
 
   <!-- ADMIN LOGIN -->
   <div class="screen" id="screen-admin-login">
-    <div class="auth-header indigo">
-      <div class="auth-logo-sm"><img src="logo.png" alt="Pathao" /></div>
-      <div class="auth-title">Admin Panel</div>
-      <div class="auth-sub">Restricted access only</div>
+    <div class="auth-header indigo-bg">
+      <div class="auth-header-content">
+        <img src="logo.png" class="auth-logo-sm" alt="Pathao" />
+        <div class="auth-app-name">Central Inbound AttendX</div>
+        <div class="auth-title">Admin Panel</div>
+        <div class="auth-sub">Restricted access only</div>
+      </div>
     </div>
     <div class="auth-body">
-      <div class="field"><label>Admin ID</label><input type="text" id="admin-id" placeholder="Enter admin ID" /></div>
-      <div class="field"><label>Password</label><input type="password" id="admin-pass" placeholder="Enter admin password" /><div class="field-error" id="err-admin"></div></div>
+      <div class="field"><label>Admin ID</label><input type="text" id="admin-id" placeholder="Enter admin ID"/></div>
+      <div class="field"><label>Password</label>
+        <div style="position:relative;">
+          <input type="password" id="admin-pass" placeholder="Enter admin password" style="padding-right:44px;"/>
+          <button onclick="togglePass('admin-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
+        </div>
+        <div class="field-error" id="err-admin"></div>
+      </div>
       <button class="btn btn-indigo" onclick="doAdminLogin()">Access Admin Panel</button>
       <button class="btn btn-ghost" onclick="showScreen('screen-login')">← Back to Login</button>
     </div>
@@ -217,22 +220,38 @@
     <div class="card" style="width:100%;max-width:320px;">
       <div style="text-align:center;margin-bottom:20px;">
         <div style="width:56px;height:56px;border-radius:50%;background:var(--red-light);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:26px;">🔒</div>
-        <div style="font-size:18px;font-weight:700;" id="pin-title">Enter PIN</div>
-        <div style="font-size:13px;color:var(--text-sub);margin-top:4px;" id="pin-sub">Verify your identity</div>
+        <div style="font-size:18px;font-weight:700;">Enter PIN</div>
+        <div style="font-size:13px;color:var(--text-sub);margin-top:4px;">Verify your identity</div>
       </div>
-      <div class="field"><input type="password" id="pin-input" placeholder="••••" maxlength="4" inputmode="numeric" style="text-align:center;font-size:28px;letter-spacing:10px;" /><div class="field-error" id="err-pin-verify"></div></div>
-      <button class="btn btn-red" onclick="verifyPIN()" id="btn-verify-pin">Confirm</button>
-      <button class="btn btn-ghost" onclick="cancelPIN()" id="btn-cancel-pin">Cancel</button>
+      <div class="field">
+        <div style="position:relative;">
+          <input type="password" id="pin-input" placeholder="••••" maxlength="4" inputmode="numeric" style="text-align:center;font-size:28px;letter-spacing:10px;padding-right:44px;"/>
+          <button onclick="togglePass('pin-input',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
+        </div>
+        <div class="field-error" id="err-pin-verify"></div>
+      </div>
+      <button class="btn btn-red" onclick="verifyPIN()">Confirm</button>
+      <button class="btn btn-ghost" onclick="cancelPIN()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- PENDING -->
+  <div class="screen" id="screen-pending" style="align-items:center;justify-content:center;padding:24px;background:var(--bg);">
+    <div class="card" style="width:100%;max-width:340px;text-align:center;">
+      <div style="font-size:48px;margin-bottom:16px;">⏳</div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:8px;">Account Pending</div>
+      <div style="font-size:14px;color:var(--text-sub);line-height:1.6;margin-bottom:20px;">Your account request has been submitted. Please wait for admin approval before signing in.</div>
+      <button class="btn btn-red" onclick="showScreen('screen-login')">Back to Login</button>
     </div>
   </div>
 
   <!-- EMPLOYEE DASHBOARD -->
   <div class="screen" id="screen-dashboard" style="background:var(--bg);position:relative;">
-    <img src="logo.png" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:260px;opacity:0.04;pointer-events:none;z-index:0;" alt="" aria-hidden="true" />
+    <img src="logo.png" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:260px;opacity:0.04;pointer-events:none;z-index:0;" alt="" aria-hidden="true"/>
     <div style="position:relative;z-index:1;flex:1;overflow-y:auto;" id="dashboard-content"></div>
   </div>
 
-  <!-- FULL HISTORY (Employee) -->
+  <!-- FULL HISTORY -->
   <div class="screen" id="screen-history">
     <div class="dash-header" style="padding-bottom:28px;">
       <div style="display:flex;align-items:center;gap:12px;">
@@ -260,16 +279,6 @@
   <!-- ADMIN DASHBOARD -->
   <div class="screen" id="screen-admin">
     <div style="flex:1;overflow-y:auto;" id="admin-content"></div>
-  </div>
-
-  <!-- PENDING APPROVAL -->
-  <div class="screen" id="screen-pending" style="background:var(--bg);align-items:center;justify-content:center;padding:24px;">
-    <div class="card" style="width:100%;max-width:340px;text-align:center;">
-      <div style="font-size:48px;margin-bottom:16px;">⏳</div>
-      <div style="font-size:18px;font-weight:700;margin-bottom:8px;">Account Pending</div>
-      <div style="font-size:14px;color:var(--text-sub);line-height:1.6;margin-bottom:20px;">Your account request has been submitted. Please wait for admin approval before signing in.</div>
-      <button class="btn btn-red" onclick="showScreen('screen-login')">Back to Login</button>
-    </div>
   </div>
 
   <!-- ADMIN HISTORY -->
