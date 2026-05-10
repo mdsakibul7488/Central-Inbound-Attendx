@@ -1,37 +1,36 @@
 // =============================================
-// CONFIGURATION — Change before deploying!
+// CONFIGURATION
 // =============================================
 const CONFIG = {
-  SHEET_URL: 'https://script.google.com/macros/s/AKfycbz6PVi3DmTHqgzB0HQqr9Q32SXr78XC-ZtMpmFbwPWHautapjGkS74AzuGyKT1WHcxa/exec', // Paste your Google Apps Script URL here
+  SHEET_URL: 'https://script.google.com/a/macros/pathao.com/s/AKfycbyMd6N7OTWAtIX3X0khVy7Tk9UKbj8b04NXEGVRSTnYLm5G08_WeGQlkOFkVoJQL5xxkw/exec',
   ADMIN_ID: 'ADMIN001',
-  // Password: Admin@1234 (SHA-256 hashed)
-  ADMIN_PASS_HASH: '7b6a5e5f4e3c2b1a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1908f7e6d5c4',
-  ADMIN_PLAIN: 'Admin@1234', // Change this AND update the hash above
+  ADMIN_PLAIN: 'Admin@1234',
 };
 
-// Simple hash function (for basic protection)
-async function hashPassword(password) {
-  const msgBuffer = new TextEncoder().encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+async function verifyAdminPassword(input) {
+  const stored = localStorage.getItem('admin_pass');
+  if (stored) return input === stored;
+  return input === CONFIG.ADMIN_PLAIN;
 }
 
-async function verifyAdminPassword(input) {
-  // Fallback: plain compare if hash not set up yet
-  if (input === CONFIG.ADMIN_PLAIN) return true;
-  try {
-    const hashed = await hashPassword(input);
-    const storedHash = localStorage.getItem('admin_pass_hash');
-    if (storedHash) return hashed === storedHash;
-    return false;
-  } catch {
-    return input === CONFIG.ADMIN_PLAIN;
+function setAdminPassword(newPass) {
+  localStorage.setItem('admin_pass', newPass);
+}
+
+// =============================================
+// REFRESH PROTECTION (logout after 5 refreshes)
+// =============================================
+function initRefreshProtection() {
+  const count = parseInt(sessionStorage.getItem('refresh_count') || '0') + 1;
+  sessionStorage.setItem('refresh_count', count);
+  if (count > 5) {
+    clearCurrentUser();
+    sessionStorage.setItem('refresh_count', '0');
   }
 }
 
 // =============================================
-// LOCAL STORAGE KEYS
+// KEYS
 // =============================================
 const KEYS = {
   USERS: 'attendx_users',
@@ -46,75 +45,49 @@ const KEYS = {
 // =============================================
 // USER STORAGE
 // =============================================
-function getUsers() {
-  return JSON.parse(localStorage.getItem(KEYS.USERS) || '[]');
-}
-function saveUsers(users) {
-  localStorage.setItem(KEYS.USERS, JSON.stringify(users));
-}
-function getUserByEID(eid) {
-  return getUsers().find(u => u.eid === eid) || null;
-}
-function addUser(user) {
-  const users = getUsers();
-  users.push(user);
-  saveUsers(users);
-}
+function getUsers() { return JSON.parse(localStorage.getItem(KEYS.USERS) || '[]'); }
+function saveUsers(u) { localStorage.setItem(KEYS.USERS, JSON.stringify(u)); }
+function getUserByEID(eid) { return getUsers().find(u => u.eid === eid) || null; }
+function addUser(user) { const u = getUsers(); u.push(user); saveUsers(u); }
 function updateUser(eid, updates) {
-  const users = getUsers();
-  const idx = users.findIndex(u => u.eid === eid);
-  if (idx !== -1) { users[idx] = { ...users[idx], ...updates }; saveUsers(users); }
+  const u = getUsers();
+  const i = u.findIndex(x => x.eid === eid);
+  if (i !== -1) { u[i] = { ...u[i], ...updates }; saveUsers(u); }
 }
 
 // =============================================
-// PENDING APPROVAL
+// PENDING
 // =============================================
-function getPendingUsers() {
-  return JSON.parse(localStorage.getItem('attendx_pending') || '[]');
-}
-function savePendingUsers(list) {
-  localStorage.setItem('attendx_pending', JSON.stringify(list));
-}
+function getPendingUsers() { return JSON.parse(localStorage.getItem('attendx_pending') || '[]'); }
+function savePendingUsers(l) { localStorage.setItem('attendx_pending', JSON.stringify(l)); }
 function addPendingUser(user) {
-  const list = getPendingUsers();
-  list.push({ ...user, requestedAt: new Date().toISOString() });
-  savePendingUsers(list);
+  const l = getPendingUsers();
+  l.push({ ...user, requestedAt: new Date().toISOString() });
+  savePendingUsers(l);
 }
 function approveUser(eid) {
-  const list = getPendingUsers();
-  const user = list.find(u => u.eid === eid);
+  const l = getPendingUsers();
+  const user = l.find(u => u.eid === eid);
   if (!user) return;
   addUser({ ...user, status: 'active' });
-  savePendingUsers(list.filter(u => u.eid !== eid));
+  savePendingUsers(l.filter(u => u.eid !== eid));
   if (CONFIG.SHEET_URL) syncUserToSheet(user);
 }
-function rejectUser(eid) {
-  savePendingUsers(getPendingUsers().filter(u => u.eid !== eid));
-}
-
-// =============================================
-// BLOCK / UNBLOCK
-// =============================================
-function blockUser(eid) {
-  updateUser(eid, { status: 'blocked' });
-}
-function unblockUser(eid) {
-  updateUser(eid, { status: 'active' });
-}
+function rejectUser(eid) { savePendingUsers(getPendingUsers().filter(u => u.eid !== eid)); }
+function blockUser(eid) { updateUser(eid, { status: 'blocked' }); }
+function unblockUser(eid) { updateUser(eid, { status: 'active' }); }
 
 // =============================================
 // ATTENDANCE
 // =============================================
-function getAttendance() {
-  return JSON.parse(localStorage.getItem(KEYS.ATTENDANCE) || '[]');
-}
-function saveAttendance(records) {
-  localStorage.setItem(KEYS.ATTENDANCE, JSON.stringify(records));
-}
+function getAttendance() { return JSON.parse(localStorage.getItem(KEYS.ATTENDANCE) || '[]'); }
+function saveAttendance(r) { localStorage.setItem(KEYS.ATTENDANCE, JSON.stringify(r)); }
+
 function getTodayRecord(eid) {
   const today = getDateStr();
   return getAttendance().find(r => r.eid === eid && r.date === today) || null;
 }
+
 function getLast3Days(eid) {
   const all = getAttendance().filter(r => r.eid === eid);
   const dates = [];
@@ -124,6 +97,7 @@ function getLast3Days(eid) {
   }
   return dates.map(date => ({ date, record: all.find(r => r.date === date) || null }));
 }
+
 async function addAttendanceRecord(record) {
   const records = getAttendance();
   const idx = records.findIndex(r => r.eid === record.eid && r.date === record.date);
@@ -134,82 +108,67 @@ async function addAttendanceRecord(record) {
 }
 
 // =============================================
+// CHECK IN/OUT RESET (6AM daily)
+// =============================================
+function shouldResetToday() {
+  const lastReset = localStorage.getItem('last_reset');
+  const today = getDateStr();
+  const hour = new Date().getHours();
+  if (hour >= 6 && lastReset !== today) {
+    localStorage.setItem('last_reset', today);
+    return true;
+  }
+  return false;
+}
+
+// =============================================
 // MULTI-ACCOUNT
 // =============================================
-function getSavedAccounts() {
-  return JSON.parse(localStorage.getItem(KEYS.SAVED_ACCOUNTS) || '[]');
-}
+function getSavedAccounts() { return JSON.parse(localStorage.getItem(KEYS.SAVED_ACCOUNTS) || '[]'); }
 function addSavedAccount(eid, name) {
-  const accounts = getSavedAccounts();
-  if (!accounts.find(a => a.eid === eid)) {
-    accounts.push({ eid, name });
-    localStorage.setItem(KEYS.SAVED_ACCOUNTS, JSON.stringify(accounts));
-  }
+  const a = getSavedAccounts();
+  if (!a.find(x => x.eid === eid)) { a.push({ eid, name }); localStorage.setItem(KEYS.SAVED_ACCOUNTS, JSON.stringify(a)); }
 }
-function getCurrentUser() {
-  return JSON.parse(localStorage.getItem(KEYS.CURRENT_USER) || 'null');
-}
-function setCurrentUser(user) {
-  localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(user));
-}
-function clearCurrentUser() {
-  localStorage.removeItem(KEYS.CURRENT_USER);
-}
+function getCurrentUser() { return JSON.parse(localStorage.getItem(KEYS.CURRENT_USER) || 'null'); }
+function setCurrentUser(user) { localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(user)); }
+function clearCurrentUser() { localStorage.removeItem(KEYS.CURRENT_USER); }
 
 // =============================================
 // OFFICE LOCATION + RADIUS
 // =============================================
-function getOfficeLocation() {
-  const saved = localStorage.getItem(KEYS.OFFICE_LOCATION);
-  return saved ? JSON.parse(saved) : null;
-}
-function setOfficeLocation(lat, lng) {
-  localStorage.setItem(KEYS.OFFICE_LOCATION, JSON.stringify({ lat, lng }));
-}
-function getOfficeRadius() {
-  return parseInt(localStorage.getItem(KEYS.OFFICE_RADIUS) || '200');
-}
-function setOfficeRadius(meters) {
-  localStorage.setItem(KEYS.OFFICE_RADIUS, String(meters));
-}
+function getOfficeLocation() { const s = localStorage.getItem(KEYS.OFFICE_LOCATION); return s ? JSON.parse(s) : null; }
+function setOfficeLocation(lat, lng) { localStorage.setItem(KEYS.OFFICE_LOCATION, JSON.stringify({ lat, lng })); }
+function getOfficeRadius() { return parseInt(localStorage.getItem(KEYS.OFFICE_RADIUS) || '200'); }
+function setOfficeRadius(m) { localStorage.setItem(KEYS.OFFICE_RADIUS, String(m)); }
 
 // =============================================
 // DAY OFFS
 // =============================================
-function getDayOffs() {
-  return JSON.parse(localStorage.getItem(KEYS.DAYOFFS) || '[]');
-}
+function getDayOffs() { return JSON.parse(localStorage.getItem(KEYS.DAYOFFS) || '[]'); }
 function setDayOff(eid, weeklyOff) {
-  const list = getDayOffs();
-  const idx = list.findIndex(d => d.eid === eid);
-  if (idx !== -1) { list[idx].weeklyOff = weeklyOff; }
-  else { list.push({ eid, weeklyOff }); }
-  localStorage.setItem(KEYS.DAYOFFS, JSON.stringify(list));
+  const l = getDayOffs();
+  const i = l.findIndex(d => d.eid === eid);
+  if (i !== -1) { l[i].weeklyOff = weeklyOff; } else { l.push({ eid, weeklyOff }); }
+  localStorage.setItem(KEYS.DAYOFFS, JSON.stringify(l));
 }
 
 // =============================================
 // HELPERS
 // =============================================
-function getDateStr(date = new Date()) {
-  return date.toISOString().split('T')[0];
-}
-function getTimeStr() {
-  return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-}
+function getDateStr(date = new Date()) { return date.toISOString().split('T')[0]; }
+function getTimeStr() { return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
 function calcDistance(lat1, lng1, lat2, lng2) {
   const R = 6371000;
-  const dLat = (lat2-lat1)*Math.PI/180;
-  const dLng = (lng2-lng1)*Math.PI/180;
+  const dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
   return Math.round(R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
 }
 async function getIP() {
-  try { const r = await fetch('https://api.ipify.org?format=json'); const d = await r.json(); return d.ip; }
-  catch { return 'Unknown'; }
+  try { const r = await fetch('https://api.ipify.org?format=json'); const d = await r.json(); return d.ip; } catch { return 'Unknown'; }
 }
 
 // =============================================
-// GOOGLE SHEET SYNC WITH RETRY
+// SHEET SYNC WITH RETRY
 // =============================================
 async function syncToSheetWithRetry(record, attempts=3) {
   if (!CONFIG.SHEET_URL) return;
@@ -221,13 +180,9 @@ async function syncToSheetWithRetry(record, attempts=3) {
         body: JSON.stringify({ type:'attendance', ...record })
       });
       return;
-    } catch {
-      if (i < attempts-1) await new Promise(r => setTimeout(r, 2000));
-    }
+    } catch { if (i<attempts-1) await new Promise(r=>setTimeout(r,2000)); }
   }
-  console.warn('Sheet sync failed after retries');
 }
-
 async function syncUserToSheet(user) {
   if (!CONFIG.SHEET_URL) return;
   try {
@@ -240,16 +195,25 @@ async function syncUserToSheet(user) {
 }
 
 // =============================================
-// CYCLE CLEAR (26th of month)
+// CYCLE HELPERS
 // =============================================
+function getCurrentCycle() {
+  const now = new Date(), day=now.getDate(), month=now.getMonth(), year=now.getFullYear();
+  if (day>=26) return { start:new Date(year,month,26), end:new Date(year,month+1,25), label:now.toLocaleString('default',{month:'long'})+' cycle' };
+  return { start:new Date(year,month-1,26), end:new Date(year,month,25), label:new Date(year,month-1).toLocaleString('default',{month:'long'})+' cycle' };
+}
+function getPrevCycle() {
+  const cur=getCurrentCycle(), prevEnd=new Date(cur.start.getTime()-86400000);
+  return { start:new Date(prevEnd.getFullYear(),prevEnd.getMonth()-1,26), end:prevEnd, label:prevEnd.toLocaleString('default',{month:'long'})+' cycle' };
+}
+function isInCycle(dateStr, cycle) { const d=new Date(dateStr+'T00:00:00'); return d>=cycle.start&&d<=cycle.end; }
 function shouldClearOldData() {
-  const today = new Date();
-  if (today.getDate() !== 26) return false;
-  return localStorage.getItem('last_cycle_clear') !== getDateStr();
+  const today=new Date();
+  if(today.getDate()!==26) return false;
+  return localStorage.getItem('last_cycle_clear')!==getDateStr();
 }
 function clearPreviousCycleData() {
-  const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-32);
-  const filtered = getAttendance().filter(r => new Date(r.date+'T00:00:00') > cutoff);
-  saveAttendance(filtered);
-  localStorage.setItem('last_cycle_clear', getDateStr());
+  const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-32);
+  saveAttendance(getAttendance().filter(r=>new Date(r.date+'T00:00:00')>cutoff));
+  localStorage.setItem('last_cycle_clear',getDateStr());
 }
