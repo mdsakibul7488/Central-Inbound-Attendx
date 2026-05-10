@@ -2,7 +2,7 @@
 // CONFIGURATION — Change before deploying!
 // =============================================
 const CONFIG = {
-  SHEET_URL: 'https://script.google.com/a/macros/pathao.com/s/AKfycby96WLegFS3ccaFKXH95paQrNpTPpCHr_syoe2mP9d48wfZPCvrvpG5JRyGdB9jiptJZQ/exec', // Paste your Google Apps Script URL here
+  SHEET_URL: 'https://script.google.com/macros/s/AKfycbz6PVi3DmTHqgzB0HQqr9Q32SXr78XC-ZtMpmFbwPWHautapjGkS74AzuGyKT1WHcxa/exec', // Paste your Google Apps Script URL here
   ADMIN_ID: 'ADMIN001',
   // Password: Admin@1234 (SHA-256 hashed)
   ADMIN_PASS_HASH: '7b6a5e5f4e3c2b1a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1908f7e6d5c4',
