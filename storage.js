@@ -2,7 +2,7 @@
 // CONFIGURATION
 // =============================================
 const CONFIG = {
-  SHEET_URL: 'https://script.google.com/a/macros/pathao.com/s/AKfycbyMd6N7OTWAtIX3X0khVy7Tk9UKbj8b04NXEGVRSTnYLm5G08_WeGQlkOFkVoJQL5xxkw/exec',
+  SHEET_URL: 'https://script.google.com/macros/s/AKfycbz6PVi3DmTHqgzB0HQqr9Q32SXr78XC-ZtMpmFbwPWHautapjGkS74AzuGyKT1WHcxa/exec',
   ADMIN_ID: 'ADMIN001',
   ADMIN_PLAIN: 'Admin@1234',
 };
