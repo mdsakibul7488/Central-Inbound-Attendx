@@ -10,14 +10,11 @@ function validatePassword(pass) {
 }
 function validatePIN(pin) { return /^\d{4}$/.test(pin); }
 
-// =============================================
-// PASSWORD SHOW/HIDE
-// =============================================
 function togglePass(inputId, btn) {
   const input = document.getElementById(inputId);
   if (!input) return;
-  if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
-  else { input.type = 'password'; btn.textContent = '👁'; }
+  input.type = input.type === 'password' ? 'text' : 'password';
+  btn.textContent = input.type === 'password' ? '👁' : '🙈';
 }
 
 // =============================================
@@ -33,9 +30,7 @@ function doSignup() {
 
   if (!name) { showFieldError('err-name', t('err-name-req')); valid=false; }
   if (!validateEID(eid)) { showFieldError('err-eid', t('err-eid-format')); valid=false; }
-  else if (getUserByEID(eid) || getPendingUsers().find(u=>u.eid===eid)) {
-    showFieldError('err-eid', t('err-eid-taken')); valid=false;
-  }
+  else if (getUserByEID(eid) || getPendingUsers().find(u=>u.eid===eid)) { showFieldError('err-eid', t('err-eid-taken')); valid=false; }
   const pc = validatePassword(pass);
   if (pc==='short') { showFieldError('err-pass', t('err-pass-short')); valid=false; }
   else if (pc==='format') { showFieldError('err-pass', t('err-pass-format')); valid=false; }
@@ -54,9 +49,9 @@ function doLogin() {
   const eid  = document.getElementById('login-eid').value.trim();
   const pass = document.getElementById('login-pass').value;
 
-  const pending = getPendingUsers().find(u => u.eid === eid);
-  if (pending) { showFieldError('err-login-pass', 'Your account is pending admin approval.'); return; }
-
+  if (getPendingUsers().find(u=>u.eid===eid)) {
+    showFieldError('err-login-pass', 'Your account is pending admin approval.'); return;
+  }
   const user = getUserByEID(eid);
   if (!user || user.pass !== pass) { showFieldError('err-login-pass', t('err-login-fail')); return; }
   if (user.status === 'blocked') { showFieldError('err-login-pass', 'Your account has been blocked. Contact admin.'); return; }
@@ -64,6 +59,7 @@ function doLogin() {
   sessionStorage.setItem('refresh_count', '0');
   setCurrentUser(user);
   addSavedAccount(eid, user.name);
+  updateUser(eid, { lastLogin: new Date().toISOString() });
   renderDashboard();
   showScreen('screen-dashboard');
 }
@@ -71,10 +67,10 @@ function doLogin() {
 // =============================================
 // ADMIN LOGIN
 // =============================================
-async function doAdminLogin() {
+function doAdminLogin() {
   const id   = document.getElementById('admin-id').value.trim();
   const pass = document.getElementById('admin-pass').value;
-  if (id === CONFIG.ADMIN_ID && await verifyAdminPassword(pass)) {
+  if (id === CONFIG.ADMIN_ID && verifyAdminPassword(pass)) {
     sessionStorage.setItem('refresh_count', '0');
     sessionStorage.setItem('admin_logged_in', '1');
     adminSelectedDate = getDateStr();
@@ -95,11 +91,10 @@ async function checkGeofence() {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const dist = calcDistance(pos.coords.latitude, pos.coords.longitude, office.lat, office.lng);
-        const radius = getOfficeRadius();
-        if (dist <= radius) resolve({ allowed:true, distance:dist, lat:pos.coords.latitude, lng:pos.coords.longitude });
-        else resolve({ allowed:false, reason:'too_far', distance:dist, lat:pos.coords.latitude, lng:pos.coords.longitude });
+        if (dist <= getOfficeRadius()) resolve({ allowed: true, distance: dist, lat: pos.coords.latitude, lng: pos.coords.longitude });
+        else resolve({ allowed: false, reason: 'too_far', distance: dist, lat: pos.coords.latitude, lng: pos.coords.longitude });
       },
-      () => resolve({ allowed:false, reason:'location_denied', distance:null }),
+      () => resolve({ allowed: false, reason: 'location_denied', distance: null }),
       { timeout: 8000 }
     );
   });
@@ -107,47 +102,77 @@ async function checkGeofence() {
 
 // =============================================
 // HOLD-TO-SUBMIT CIRCLE
+// Circle fills completely → then fingerprint/PIN
 // =============================================
 let holdAnimFrame = null;
 let holdType = null;
+let holdFinished = false;
 
 function startHold(type, btnEl) {
   if (btnEl.disabled) return;
   holdType = type;
-  const duration = 1800;
+  holdFinished = false;
+  const duration = 2000;
   const start = performance.now();
-  const circle = btnEl.closest('.circle-outer').querySelector('.progress-ring-circle');
+  const outer = btnEl.closest('.circle-outer');
+  const circle = outer ? outer.querySelector('.progress-ring-circle') : null;
   const circumference = 2 * Math.PI * 40;
 
   function animate(now) {
     const progress = Math.min((now - start) / duration, 1);
     if (circle) circle.style.strokeDashoffset = circumference * (1 - progress);
-    if (progress < 1) { holdAnimFrame = requestAnimationFrame(animate); }
-    else { onHoldComplete(type); }
+    if (progress < 1) {
+      holdAnimFrame = requestAnimationFrame(animate);
+    } else {
+      holdFinished = true;
+      // Circle complete — now trigger fingerprint or PIN
+      onCircleComplete(type, btnEl);
+    }
   }
   holdAnimFrame = requestAnimationFrame(animate);
 }
 
-function cancelHold(btnEl) {
-  if (holdAnimFrame) { cancelAnimationFrame(holdAnimFrame); holdAnimFrame = null; }
-  const circle = btnEl.closest('.circle-outer')?.querySelector('.progress-ring-circle');
-  if (circle) circle.style.strokeDashoffset = 2 * Math.PI * 40;
+function endHold(btnEl) {
+  // If circle not complete yet, cancel and reset
+  if (!holdFinished) {
+    if (holdAnimFrame) { cancelAnimationFrame(holdAnimFrame); holdAnimFrame = null; }
+    const outer = btnEl.closest('.circle-outer');
+    const circle = outer ? outer.querySelector('.progress-ring-circle') : null;
+    if (circle) circle.style.strokeDashoffset = 2 * Math.PI * 40;
+  }
 }
 
-async function onHoldComplete(type) {
+async function onCircleComplete(type, btnEl) {
+  // Check geofence first
   const office = getOfficeLocation();
-  if (!office) { showToast('Admin has not set office location yet.', 'error'); return; }
+  if (!office) { showToast('Admin has not set office location yet.', 'error'); resetCircle(btnEl); return; }
+
   const geo = await checkGeofence();
   if (!geo.allowed) {
     if (geo.reason === 'too_far') showToast(`You are ${geo.distance}m away. Must be within ${getOfficeRadius()}m.`, 'error');
     else if (geo.reason === 'location_denied') showToast(t('err-location'), 'error');
     else showToast('Admin has not set office location yet.', 'error');
+    resetCircle(btnEl);
     renderDashboard();
     return;
   }
-  holdType = type;
-  if (window.PublicKeyCredential) { tryFingerprint(type, geo); }
-  else { openPINScreen(type, geo); }
+
+  // Geofence passed — now fingerprint or PIN
+  pendingGeo = geo;
+  pinAction = type;
+
+  if (window.PublicKeyCredential) {
+    tryFingerprint(type, geo);
+  } else {
+    openPINScreen(type, geo);
+  }
+}
+
+function resetCircle(btnEl) {
+  holdFinished = false;
+  const outer = btnEl ? btnEl.closest('.circle-outer') : null;
+  const circle = outer ? outer.querySelector('.progress-ring-circle') : null;
+  if (circle) circle.style.strokeDashoffset = 2 * Math.PI * 40;
 }
 
 // =============================================
@@ -162,16 +187,20 @@ async function tryFingerprint(type, geo) {
     const challenge = new Uint8Array(32);
     crypto.getRandomValues(challenge);
     const credential = await navigator.credentials.get({
-      publicKey: { challenge, timeout:30000, userVerification:'required', rpId: window.location.hostname||'localhost' }
+      publicKey: { challenge, timeout: 30000, userVerification: 'required', rpId: window.location.hostname || 'localhost' }
     });
     if (credential) { showToast(t('msg-fp-success'), 'success'); processAttendance(type, geo); }
-  } catch { openPINScreen(type, geo); }
+  } catch {
+    // Fingerprint failed or not available — use PIN
+    openPINScreen(type, geo);
+  }
 }
 
 function openPINScreen(type, geo) {
   pendingGeo = geo; pinAction = type;
   document.getElementById('pin-input').value = '';
   document.getElementById('err-pin-verify').style.display = 'none';
+  screenHistory.push('screen-dashboard');
   showScreen('screen-pin');
 }
 
@@ -180,14 +209,18 @@ function verifyPIN() {
   const pin  = document.getElementById('pin-input').value.trim();
   if (pin !== user.pin) {
     const el = document.getElementById('err-pin-verify');
-    el.textContent = t('err-pin-wrong'); el.style.display = 'block';
-    return;
+    el.textContent = t('err-pin-wrong'); el.style.display = 'block'; return;
   }
+  screenHistory.pop();
   showScreen('screen-dashboard');
   processAttendance(pinAction, pendingGeo);
 }
 
-function cancelPIN() { showScreen('screen-dashboard'); renderDashboard(); }
+function cancelPIN() {
+  screenHistory.pop();
+  showScreen('screen-dashboard');
+  renderDashboard();
+}
 
 // =============================================
 // PROCESS ATTENDANCE
@@ -197,16 +230,8 @@ async function processAttendance(type, geo) {
   const today = getDateStr();
   const existing = getTodayRecord(user.eid);
 
-  // Check in/out logic:
-  // - If no existing: both in and out allowed
-  // - If checked in but not out: only out allowed
-  // - If checked out: both reset (handled by 6am reset)
-  if (type === 'checkin' && existing && existing.checkIn) {
-    showToast(t('msg-already-checkin'), 'error'); return;
-  }
-  if (type === 'checkout' && existing && existing.checkOut) {
-    showToast(t('msg-already-checkout'), 'error'); return;
-  }
+  if (type === 'checkin' && existing && existing.checkIn) { showToast(t('msg-already-checkin'), 'error'); return; }
+  if (type === 'checkout' && existing && existing.checkOut) { showToast(t('msg-already-checkout'), 'error'); return; }
 
   const ip = await getIP();
   const distanceM = geo && geo.distance !== null ? geo.distance + 'm' : 'N/A';
