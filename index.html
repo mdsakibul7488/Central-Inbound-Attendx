@@ -9,7 +9,7 @@
   <style>
     :root {
       --red:#E8192C; --red-dark:#C0141F; --red-light:#FDE8EA;
-      --green:#00C896; --green-dark:#00A07A; --green-light:#E1F5EE;
+      --green:#00C896; --green-light:#E1F5EE;
       --indigo:#4F46E5; --indigo-light:#EEF2FF;
       --bg:#F5F6FA; --surface:#FFFFFF; --border:#E8ECF2;
       --text:#111827; --text-sub:#6B7280;
@@ -23,31 +23,36 @@
     .screen{display:none;min-height:100vh;}
     .screen.active{display:flex;flex-direction:column;animation:fadeUp 0.28s ease;}
     @keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
-    @keyframes glowPulse{0%,100%{box-shadow:0 0 0 3px #9FE1CB,0 0 10px #9FE1CB60;}50%{box-shadow:0 0 0 4px #9FE1CB,0 0 20px #9FE1CB90;}}
-    @keyframes glowPulseAmber{0%,100%{box-shadow:0 0 0 3px #FAC775,0 0 10px #FAC77560;}50%{box-shadow:0 0 0 4px #FAC775,0 0 20px #FAC77590;}}
+    @keyframes splashIn{from{opacity:0;transform:scale(0.85);}to{opacity:1;transform:scale(1);}}
+    @keyframes glowPulseGreen{
+      0%,100%{box-shadow:0 0 0 3px #9FE1CB,0 0 12px rgba(0,200,150,0.3);}
+      50%{box-shadow:0 0 0 5px #9FE1CB,0 0 24px rgba(0,200,150,0.5);}
+    }
+    @keyframes glowPulseAmber{
+      0%,100%{box-shadow:0 0 0 3px #FAC775,0 0 12px rgba(245,158,11,0.3);}
+      50%{box-shadow:0 0 0 5px #FAC775,0 0 24px rgba(245,158,11,0.5);}
+    }
 
     /* SPLASH */
     #screen-splash{background:#0A0A0A;align-items:center;justify-content:center;}
     .splash-logo{animation:splashIn 0.7s ease;}
-    @keyframes splashIn{from{opacity:0;transform:scale(0.85);}to{opacity:1;transform:scale(1);}}
     .splash-logo img{width:270px;max-width:80vw;}
 
-    /* AUTH HEADER */
+    /* AUTH */
     .auth-header{padding:52px 24px 36px;position:relative;overflow:hidden;flex-shrink:0;}
     .auth-header.red-bg{background:var(--red);}
     .auth-header.indigo-bg{background:var(--indigo);}
     .auth-header::after{content:'';position:absolute;bottom:-28px;left:0;right:0;height:56px;background:var(--bg);border-radius:50% 50% 0 0/56px 56px 0 0;}
     .auth-header-content{display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;}
     .auth-logo-sm{width:52px;height:52px;object-fit:contain;border-radius:12px;background:white;padding:5px;margin-bottom:10px;}
-    .auth-app-name{font-size:15px;font-weight:700;color:white;letter-spacing:0.3px;margin-bottom:4px;}
+    .auth-app-name{font-size:14px;font-weight:700;color:white;letter-spacing:0.3px;margin-bottom:4px;}
     .auth-title{font-size:22px;font-weight:700;color:white;}
     .auth-sub{font-size:13px;color:rgba(255,255,255,0.75);margin-top:4px;}
     .auth-body{padding:36px 24px 28px;flex:1;overflow-y:auto;}
 
-    /* DASHBOARD HEADER */
+    /* DASHBOARD */
     .dash-header{padding:52px 20px 24px;position:relative;overflow:hidden;background:var(--red);}
     .dash-header::after{content:'';position:absolute;bottom:-24px;left:0;right:0;height:48px;background:var(--bg);border-radius:50%;}
-    .dash-header-logo{height:28px;object-fit:contain;margin-bottom:10px;filter:brightness(0) invert(1);opacity:0.9;}
     .dash-greeting{font-size:12px;color:rgba(255,255,255,0.75);margin-bottom:2px;}
     .dash-name{font-size:20px;font-weight:700;color:white;}
     .dash-eid{font-size:12px;color:rgba(255,255,255,0.65);margin-top:2px;}
@@ -55,10 +60,9 @@
     .avatar-circle{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;color:white;}
     .avatar-gear{position:absolute;bottom:-1px;right:-1px;width:18px;height:18px;border-radius:50%;background:var(--red-dark);border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:10px;color:white;}
 
-    /* ADMIN HEADER */
+    /* ADMIN */
     .admin-header{padding:52px 20px 20px;position:relative;overflow:hidden;background:var(--indigo);}
     .admin-header::after{content:'';position:absolute;bottom:-24px;left:0;right:0;height:48px;background:var(--bg);border-radius:50%;}
-    .admin-header-logo{height:24px;object-fit:contain;margin-bottom:8px;filter:brightness(0) invert(1);opacity:0.85;}
     .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:14px;}
     .stat-box{background:rgba(255,255,255,0.15);border-radius:10px;padding:8px 10px;}
     .stat-box.full{grid-column:1/-1;}
@@ -108,6 +112,7 @@
     .saved-acc-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius-sm);background:var(--bg);margin-bottom:6px;cursor:pointer;border:1px solid var(--border);}
     .settings-header{background:var(--red);padding:52px 20px 36px;position:relative;overflow:hidden;}
     .settings-header::after{content:'';position:absolute;bottom:-24px;left:0;right:0;height:48px;background:var(--bg);border-radius:50%;}
+    .back-btn{background:rgba(255,255,255,0.2);border:none;border-radius:50%;width:34px;height:34px;cursor:pointer;color:white;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   </style>
 </head>
 <body>
@@ -116,7 +121,7 @@
   <!-- SPLASH -->
   <div class="screen active" id="screen-splash">
     <div style="background:#0A0A0A;flex:1;display:flex;align-items:center;justify-content:center;">
-      <div class="splash-logo"><img src="logo.png" alt="Pathao" /></div>
+      <div class="splash-logo"><img src="logo.png" alt="Pathao"/></div>
     </div>
   </div>
 
@@ -124,7 +129,7 @@
   <div class="screen" id="screen-signup">
     <div class="auth-header red-bg">
       <div class="auth-header-content">
-        <img src="logo.png" class="auth-logo-sm" alt="Pathao" />
+        <img src="logo.png" class="auth-logo-sm" alt="Pathao"/>
         <div class="auth-app-name">Central Inbound AttendX</div>
         <div class="auth-title">Create Account</div>
         <div class="auth-sub">Join Pathao Attendance</div>
@@ -138,21 +143,17 @@
       <div class="field"><label id="lbl-name">Full Name</label><input type="text" id="signup-name" placeholder="e.g. Sakibul Islam"/><div class="field-error" id="err-name"></div></div>
       <div class="field"><label id="lbl-eid">Employee ID</label><input type="text" id="signup-eid" placeholder="C 00001 / S 0001 / M 000001" maxlength="8"/><div class="field-hint" id="hint-eid">C, S or M + space + 4-6 digits</div><div class="field-error" id="err-eid"></div></div>
       <div class="field"><label id="lbl-pass">Password</label>
-        <div style="position:relative;">
-          <input type="password" id="signup-pass" placeholder="Min 8 chars, letters + numbers" style="padding-right:44px;"/>
-          <button onclick="togglePass('signup-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
-        </div>
+        <div style="position:relative;"><input type="password" id="signup-pass" placeholder="Min 8 chars, letters + numbers" style="padding-right:44px;"/>
+        <button onclick="togglePass('signup-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button></div>
         <div class="field-error" id="err-pass"></div>
       </div>
       <div class="field"><label id="lbl-pin">4-Digit PIN</label>
-        <div style="position:relative;">
-          <input type="password" id="signup-pin" placeholder="••••" maxlength="4" inputmode="numeric" style="padding-right:44px;"/>
-          <button onclick="togglePass('signup-pin',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
-        </div>
+        <div style="position:relative;"><input type="password" id="signup-pin" placeholder="••••" maxlength="4" inputmode="numeric" style="padding-right:44px;"/>
+        <button onclick="togglePass('signup-pin',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button></div>
         <div class="field-hint" id="hint-pin">Used when fingerprint unavailable</div>
         <div class="field-error" id="err-pin"></div>
       </div>
-      <button class="btn btn-red" onclick="doSignup()" id="btn-signup">Create Account</button>
+      <button class="btn btn-red" onclick="doSignup()">Create Account</button>
       <div class="switch-row"><span id="lbl-have-acc">Already have an account?</span> <a onclick="showScreen('screen-login')" id="lbl-go-login">Sign in</a></div>
       <div style="text-align:center;margin-top:16px;"><a onclick="showScreen('screen-admin-login')" style="font-size:12px;color:var(--text-sub);cursor:pointer;text-decoration:underline;">Admin Panel →</a></div>
     </div>
@@ -162,7 +163,7 @@
   <div class="screen" id="screen-login">
     <div class="auth-header red-bg">
       <div class="auth-header-content">
-        <img src="logo.png" class="auth-logo-sm" alt="Pathao" />
+        <img src="logo.png" class="auth-logo-sm" alt="Pathao"/>
         <div class="auth-app-name">Central Inbound AttendX</div>
         <div class="auth-title">Welcome Back</div>
         <div class="auth-sub">Sign in to continue</div>
@@ -175,13 +176,14 @@
       </div>
       <div class="field"><label id="lbl-login-eid">Employee ID</label><input type="text" id="login-eid" placeholder="C 00001 / S 0001 / M 000001" maxlength="8"/><div class="field-error" id="err-login-eid"></div></div>
       <div class="field"><label id="lbl-login-pass">Password</label>
-        <div style="position:relative;">
-          <input type="password" id="login-pass" placeholder="Your password" style="padding-right:44px;"/>
-          <button onclick="togglePass('login-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
-        </div>
+        <div style="position:relative;"><input type="password" id="login-pass" placeholder="Your password" style="padding-right:44px;"/>
+        <button onclick="togglePass('login-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button></div>
         <div class="field-error" id="err-login-pass"></div>
       </div>
-      <button class="btn btn-red" onclick="doLogin()" id="btn-login">Sign In</button>
+      <button class="btn btn-red" onclick="doLogin()">Sign In</button>
+      <div style="text-align:center;margin-top:12px;">
+        <a onclick="showScreen('screen-forgot')" style="font-size:13px;color:var(--red);font-weight:500;cursor:pointer;">Forgot Password?</a>
+      </div>
       <div class="switch-row"><span id="lbl-no-acc">Don't have an account?</span> <a onclick="showScreen('screen-signup')" id="lbl-go-signup">Sign up</a></div>
       <div id="saved-accounts-wrap" style="display:none;margin-top:18px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><div style="flex:1;height:1px;background:var(--border);"></div><span style="font-size:11px;color:var(--text-sub);">Saved accounts</span><div style="flex:1;height:1px;background:var(--border);"></div></div>
@@ -191,11 +193,31 @@
     </div>
   </div>
 
+  <!-- FORGOT PASSWORD -->
+  <div class="screen" id="screen-forgot">
+    <div class="auth-header red-bg">
+      <div class="auth-header-content">
+        <img src="logo.png" class="auth-logo-sm" alt="Pathao"/>
+        <div class="auth-app-name">Central Inbound AttendX</div>
+        <div class="auth-title">Forgot Password</div>
+        <div class="auth-sub">Contact your admin to reset</div>
+      </div>
+    </div>
+    <div class="auth-body">
+      <div class="card" style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:40px;margin-bottom:12px;">🔑</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:8px;">Password Reset</div>
+        <div style="font-size:14px;color:var(--text-sub);line-height:1.6;">Please contact your admin to reset your password. Admin can reset it from the Admin Panel under each employee's options.</div>
+      </div>
+      <button class="btn btn-red" onclick="showScreen('screen-login')">← Back to Login</button>
+    </div>
+  </div>
+
   <!-- ADMIN LOGIN -->
   <div class="screen" id="screen-admin-login">
     <div class="auth-header indigo-bg">
       <div class="auth-header-content">
-        <img src="logo.png" class="auth-logo-sm" alt="Pathao" />
+        <img src="logo.png" class="auth-logo-sm" alt="Pathao"/>
         <div class="auth-app-name">Central Inbound AttendX</div>
         <div class="auth-title">Admin Panel</div>
         <div class="auth-sub">Restricted access only</div>
@@ -204,10 +226,8 @@
     <div class="auth-body">
       <div class="field"><label>Admin ID</label><input type="text" id="admin-id" placeholder="Enter admin ID"/></div>
       <div class="field"><label>Password</label>
-        <div style="position:relative;">
-          <input type="password" id="admin-pass" placeholder="Enter admin password" style="padding-right:44px;"/>
-          <button onclick="togglePass('admin-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
-        </div>
+        <div style="position:relative;"><input type="password" id="admin-pass" placeholder="Enter admin password" style="padding-right:44px;"/>
+        <button onclick="togglePass('admin-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button></div>
         <div class="field-error" id="err-admin"></div>
       </div>
       <button class="btn btn-indigo" onclick="doAdminLogin()">Access Admin Panel</button>
@@ -224,10 +244,8 @@
         <div style="font-size:13px;color:var(--text-sub);margin-top:4px;">Verify your identity</div>
       </div>
       <div class="field">
-        <div style="position:relative;">
-          <input type="password" id="pin-input" placeholder="••••" maxlength="4" inputmode="numeric" style="text-align:center;font-size:28px;letter-spacing:10px;padding-right:44px;"/>
-          <button onclick="togglePass('pin-input',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
-        </div>
+        <div style="position:relative;"><input type="password" id="pin-input" placeholder="••••" maxlength="4" inputmode="numeric" style="text-align:center;font-size:28px;letter-spacing:10px;padding-right:44px;"/>
+        <button onclick="togglePass('pin-input',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button></div>
         <div class="field-error" id="err-pin-verify"></div>
       </div>
       <button class="btn btn-red" onclick="verifyPIN()">Confirm</button>
@@ -240,7 +258,7 @@
     <div class="card" style="width:100%;max-width:340px;text-align:center;">
       <div style="font-size:48px;margin-bottom:16px;">⏳</div>
       <div style="font-size:18px;font-weight:700;margin-bottom:8px;">Account Pending</div>
-      <div style="font-size:14px;color:var(--text-sub);line-height:1.6;margin-bottom:20px;">Your account request has been submitted. Please wait for admin approval before signing in.</div>
+      <div style="font-size:14px;color:var(--text-sub);line-height:1.6;margin-bottom:20px;">Your request has been submitted. Please wait for admin approval.</div>
       <button class="btn btn-red" onclick="showScreen('screen-login')">Back to Login</button>
     </div>
   </div>
@@ -255,7 +273,7 @@
   <div class="screen" id="screen-history">
     <div class="dash-header" style="padding-bottom:28px;">
       <div style="display:flex;align-items:center;gap:12px;">
-        <button onclick="showScreen('screen-dashboard')" style="background:rgba(255,255,255,0.2);border:none;border-radius:50%;width:34px;height:34px;cursor:pointer;color:white;font-size:18px;display:flex;align-items:center;justify-content:center;">←</button>
+        <button class="back-btn" onclick="goBack()">←</button>
         <div>
           <div style="font-size:18px;font-weight:700;color:white;">Full Attendance</div>
           <div style="font-size:12px;color:rgba(255,255,255,0.7);" id="history-sub-label"></div>
@@ -269,7 +287,7 @@
   <div class="screen" id="screen-settings">
     <div class="settings-header">
       <div style="display:flex;align-items:center;gap:12px;">
-        <button onclick="renderDashboard();showScreen('screen-dashboard')" style="background:rgba(255,255,255,0.2);border:none;border-radius:50%;width:34px;height:34px;cursor:pointer;color:white;font-size:18px;display:flex;align-items:center;justify-content:center;">←</button>
+        <button class="back-btn" onclick="goBack()">←</button>
         <div style="font-size:20px;font-weight:700;color:white;">Settings</div>
       </div>
     </div>
@@ -285,7 +303,7 @@
   <div class="screen" id="screen-admin-history">
     <div class="admin-header" style="padding-bottom:28px;">
       <div style="display:flex;align-items:center;gap:12px;">
-        <button onclick="renderAdminDashboard();showScreen('screen-admin')" style="background:rgba(255,255,255,0.2);border:none;border-radius:50%;width:34px;height:34px;cursor:pointer;color:white;font-size:18px;display:flex;align-items:center;justify-content:center;">←</button>
+        <button class="back-btn" onclick="goBack()">←</button>
         <div>
           <div style="font-size:18px;font-weight:700;color:white;">Attendance History</div>
           <div style="font-size:12px;color:rgba(255,255,255,0.7);" id="admin-history-sub"></div>
