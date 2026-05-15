@@ -7,24 +7,21 @@ const CONFIG = {
   ADMIN_PLAIN: 'Admin@1234',
 };
 
-async function verifyAdminPassword(input) {
+function verifyAdminPassword(input) {
   const stored = localStorage.getItem('admin_pass');
-  if (stored) return input === stored;
-  return input === CONFIG.ADMIN_PLAIN;
+  return input === (stored || CONFIG.ADMIN_PLAIN);
 }
-
-function setAdminPassword(newPass) {
-  localStorage.setItem('admin_pass', newPass);
-}
+function setAdminPassword(newPass) { localStorage.setItem('admin_pass', newPass); }
 
 // =============================================
-// REFRESH PROTECTION (logout after 5 refreshes)
+// REFRESH PROTECTION
 // =============================================
 function initRefreshProtection() {
   const count = parseInt(sessionStorage.getItem('refresh_count') || '0') + 1;
   sessionStorage.setItem('refresh_count', count);
   if (count > 5) {
     clearCurrentUser();
+    sessionStorage.removeItem('admin_logged_in');
     sessionStorage.setItem('refresh_count', '0');
   }
 }
@@ -39,7 +36,7 @@ const KEYS = {
   SAVED_ACCOUNTS: 'attendx_saved_accounts',
   OFFICE_LOCATION: 'attendx_office_location',
   OFFICE_RADIUS: 'attendx_office_radius',
-  DAYOFFS: 'attendx_dayoffs',
+  RESOURCES: 'attendx_resources',
 };
 
 // =============================================
@@ -54,9 +51,15 @@ function updateUser(eid, updates) {
   const i = u.findIndex(x => x.eid === eid);
   if (i !== -1) { u[i] = { ...u[i], ...updates }; saveUsers(u); }
 }
+function adminResetPassword(eid, newPass) {
+  updateUser(eid, { pass: newPass });
+  // Sync updated password to sheet
+  const user = getUserByEID(eid);
+  if (user) syncUserToSheet({ ...user, pass: newPass });
+}
 
 // =============================================
-// PENDING
+// PENDING APPROVAL
 // =============================================
 function getPendingUsers() { return JSON.parse(localStorage.getItem('attendx_pending') || '[]'); }
 function savePendingUsers(l) { localStorage.setItem('attendx_pending', JSON.stringify(l)); }
@@ -69,35 +72,44 @@ function approveUser(eid) {
   const l = getPendingUsers();
   const user = l.find(u => u.eid === eid);
   if (!user) return;
-  addUser({ ...user, status: 'active' });
+  const newUser = { ...user, status: 'active', createdAt: new Date().toISOString() };
+  addUser(newUser);
   savePendingUsers(l.filter(u => u.eid !== eid));
-  if (CONFIG.SHEET_URL) syncUserToSheet(user);
+  syncUserToSheet(newUser);
 }
 function rejectUser(eid) { savePendingUsers(getPendingUsers().filter(u => u.eid !== eid)); }
 function blockUser(eid) { updateUser(eid, { status: 'blocked' }); }
 function unblockUser(eid) { updateUser(eid, { status: 'active' }); }
 
 // =============================================
+// MULTI-ACCOUNT (max 2)
+// =============================================
+function getSavedAccounts() { return JSON.parse(localStorage.getItem(KEYS.SAVED_ACCOUNTS) || '[]'); }
+function addSavedAccount(eid, name) {
+  let a = getSavedAccounts();
+  if (a.find(x => x.eid === eid)) return;
+  a.push({ eid, name });
+  if (a.length > 2) a = a.slice(-2);
+  localStorage.setItem(KEYS.SAVED_ACCOUNTS, JSON.stringify(a));
+}
+function getCurrentUser() { return JSON.parse(localStorage.getItem(KEYS.CURRENT_USER) || 'null'); }
+function setCurrentUser(user) { localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(user)); }
+function clearCurrentUser() { localStorage.removeItem(KEYS.CURRENT_USER); }
+
+// =============================================
 // ATTENDANCE
 // =============================================
 function getAttendance() { return JSON.parse(localStorage.getItem(KEYS.ATTENDANCE) || '[]'); }
 function saveAttendance(r) { localStorage.setItem(KEYS.ATTENDANCE, JSON.stringify(r)); }
-
 function getTodayRecord(eid) {
-  const today = getDateStr();
-  return getAttendance().find(r => r.eid === eid && r.date === today) || null;
+  return getAttendance().find(r => r.eid === eid && r.date === getDateStr()) || null;
 }
-
 function getLast3Days(eid) {
   const all = getAttendance().filter(r => r.eid === eid);
   const dates = [];
-  for (let i = 1; i <= 3; i++) {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    dates.push(getDateStr(d));
-  }
+  for (let i = 1; i <= 3; i++) { const d = new Date(); d.setDate(d.getDate() - i); dates.push(getDateStr(d)); }
   return dates.map(date => ({ date, record: all.find(r => r.date === date) || null }));
 }
-
 async function addAttendanceRecord(record) {
   const records = getAttendance();
   const idx = records.findIndex(r => r.eid === record.eid && r.date === record.date);
@@ -108,13 +120,12 @@ async function addAttendanceRecord(record) {
 }
 
 // =============================================
-// CHECK IN/OUT RESET (6AM daily)
+// 6AM DAILY RESET
 // =============================================
 function shouldResetToday() {
   const lastReset = localStorage.getItem('last_reset');
   const today = getDateStr();
-  const hour = new Date().getHours();
-  if (hour >= 6 && lastReset !== today) {
+  if (new Date().getHours() >= 6 && lastReset !== today) {
     localStorage.setItem('last_reset', today);
     return true;
   }
@@ -122,16 +133,29 @@ function shouldResetToday() {
 }
 
 // =============================================
-// MULTI-ACCOUNT
+// RESOURCES (from Sheet - EID + Weekly Off)
 // =============================================
-function getSavedAccounts() { return JSON.parse(localStorage.getItem(KEYS.SAVED_ACCOUNTS) || '[]'); }
-function addSavedAccount(eid, name) {
-  const a = getSavedAccounts();
-  if (!a.find(x => x.eid === eid)) { a.push({ eid, name }); localStorage.setItem(KEYS.SAVED_ACCOUNTS, JSON.stringify(a)); }
+function getResources() { return JSON.parse(localStorage.getItem(KEYS.RESOURCES) || '[]'); }
+function saveResources(data) { localStorage.setItem(KEYS.RESOURCES, JSON.stringify(data)); }
+function getTotalResources() {
+  const res = getResources();
+  return res.length > 0 ? res.length : getUsers().length;
 }
-function getCurrentUser() { return JSON.parse(localStorage.getItem(KEYS.CURRENT_USER) || 'null'); }
-function setCurrentUser(user) { localStorage.setItem(KEYS.CURRENT_USER, JSON.stringify(user)); }
-function clearCurrentUser() { localStorage.removeItem(KEYS.CURRENT_USER); }
+function getWeeklyOffForEID(eid) {
+  const res = getResources();
+  const found = res.find(r => r.eid === eid);
+  return found ? found.weeklyOff : null;
+}
+async function fetchResourcesFromSheet() {
+  if (!CONFIG.SHEET_URL) return;
+  try {
+    const res = await fetch(CONFIG.SHEET_URL + '?action=getResources');
+    const data = await res.json();
+    if (data.resources && Array.isArray(data.resources)) {
+      saveResources(data.resources);
+    }
+  } catch {}
+}
 
 // =============================================
 // OFFICE LOCATION + RADIUS
@@ -142,26 +166,14 @@ function getOfficeRadius() { return parseInt(localStorage.getItem(KEYS.OFFICE_RA
 function setOfficeRadius(m) { localStorage.setItem(KEYS.OFFICE_RADIUS, String(m)); }
 
 // =============================================
-// DAY OFFS
-// =============================================
-function getDayOffs() { return JSON.parse(localStorage.getItem(KEYS.DAYOFFS) || '[]'); }
-function setDayOff(eid, weeklyOff) {
-  const l = getDayOffs();
-  const i = l.findIndex(d => d.eid === eid);
-  if (i !== -1) { l[i].weeklyOff = weeklyOff; } else { l.push({ eid, weeklyOff }); }
-  localStorage.setItem(KEYS.DAYOFFS, JSON.stringify(l));
-}
-
-// =============================================
 // HELPERS
 // =============================================
 function getDateStr(date = new Date()) { return date.toISOString().split('T')[0]; }
 function getTimeStr() { return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
 function calcDistance(lat1, lng1, lat2, lng2) {
-  const R = 6371000;
-  const dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
+  const R = 6371000, dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
-  return Math.round(R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
+  return Math.round(R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 }
 async function getIP() {
   try { const r = await fetch('https://api.ipify.org?format=json'); const d = await r.json(); return d.ip; } catch { return 'Unknown'; }
@@ -172,24 +184,32 @@ async function getIP() {
 // =============================================
 async function syncToSheetWithRetry(record, attempts=3) {
   if (!CONFIG.SHEET_URL) return;
-  for (let i=0; i<attempts; i++) {
+  for (let i = 0; i < attempts; i++) {
     try {
       await fetch(CONFIG.SHEET_URL, {
-        method:'POST', mode:'no-cors',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ type:'attendance', ...record })
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'attendance', ...record })
       });
       return;
-    } catch { if (i<attempts-1) await new Promise(r=>setTimeout(r,2000)); }
+    } catch { if (i < attempts-1) await new Promise(r => setTimeout(r, 2000)); }
   }
 }
+
 async function syncUserToSheet(user) {
   if (!CONFIG.SHEET_URL) return;
   try {
     await fetch(CONFIG.SHEET_URL, {
-      method:'POST', mode:'no-cors',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ type:'user', eid:user.eid, name:user.name, createdAt:user.createdAt||new Date().toISOString() })
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'user',
+        eid: user.eid,
+        name: user.name,
+        pass: user.pass,
+        pin: user.pin,
+        createdAt: user.createdAt || new Date().toISOString()
+      })
     });
   } catch {}
 }
@@ -198,22 +218,21 @@ async function syncUserToSheet(user) {
 // CYCLE HELPERS
 // =============================================
 function getCurrentCycle() {
-  const now = new Date(), day=now.getDate(), month=now.getMonth(), year=now.getFullYear();
-  if (day>=26) return { start:new Date(year,month,26), end:new Date(year,month+1,25), label:now.toLocaleString('default',{month:'long'})+' cycle' };
-  return { start:new Date(year,month-1,26), end:new Date(year,month,25), label:new Date(year,month-1).toLocaleString('default',{month:'long'})+' cycle' };
+  const now = new Date(), day = now.getDate(), month = now.getMonth(), year = now.getFullYear();
+  if (day >= 26) return { start: new Date(year,month,26), end: new Date(year,month+1,25), label: now.toLocaleString('default',{month:'long'})+' cycle' };
+  return { start: new Date(year,month-1,26), end: new Date(year,month,25), label: new Date(year,month-1).toLocaleString('default',{month:'long'})+' cycle' };
 }
 function getPrevCycle() {
-  const cur=getCurrentCycle(), prevEnd=new Date(cur.start.getTime()-86400000);
-  return { start:new Date(prevEnd.getFullYear(),prevEnd.getMonth()-1,26), end:prevEnd, label:prevEnd.toLocaleString('default',{month:'long'})+' cycle' };
+  const cur = getCurrentCycle(), prevEnd = new Date(cur.start.getTime()-86400000);
+  return { start: new Date(prevEnd.getFullYear(),prevEnd.getMonth()-1,26), end: prevEnd, label: prevEnd.toLocaleString('default',{month:'long'})+' cycle' };
 }
-function isInCycle(dateStr, cycle) { const d=new Date(dateStr+'T00:00:00'); return d>=cycle.start&&d<=cycle.end; }
+function isInCycle(dateStr, cycle) { const d = new Date(dateStr+'T00:00:00'); return d >= cycle.start && d <= cycle.end; }
 function shouldClearOldData() {
-  const today=new Date();
-  if(today.getDate()!==26) return false;
-  return localStorage.getItem('last_cycle_clear')!==getDateStr();
+  if (new Date().getDate() !== 26) return false;
+  return localStorage.getItem('last_cycle_clear') !== getDateStr();
 }
 function clearPreviousCycleData() {
-  const cutoff=new Date(); cutoff.setDate(cutoff.getDate()-32);
-  saveAttendance(getAttendance().filter(r=>new Date(r.date+'T00:00:00')>cutoff));
-  localStorage.setItem('last_cycle_clear',getDateStr());
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-32);
+  saveAttendance(getAttendance().filter(r => new Date(r.date+'T00:00:00') > cutoff));
+  localStorage.setItem('last_cycle_clear', getDateStr());
 }
