@@ -1,12 +1,33 @@
 // =============================================
-// SCREEN + TOAST
+// SCREEN HISTORY (back button fix)
 // =============================================
+let screenHistory = [];
+
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   const el = document.getElementById(id);
   if (el) el.classList.add('active');
-  window.scrollTo(0,0);
+  window.scrollTo(0, 0);
 }
+
+function navigateTo(id) {
+  const current = document.querySelector('.screen.active');
+  if (current) screenHistory.push(current.id);
+  showScreen(id);
+  window.history.pushState({}, '', window.location.href);
+}
+
+function goBack() {
+  if (screenHistory.length > 0) {
+    showScreen(screenHistory.pop());
+  }
+}
+
+window.addEventListener('popstate', (e) => { e.preventDefault(); goBack(); });
+
+// =============================================
+// TOAST + ERRORS
+// =============================================
 function showToast(msg, type='') {
   const el = document.getElementById('toast');
   el.textContent = msg; el.className = 'toast show ' + type;
@@ -17,7 +38,7 @@ function showFieldError(id, msg) {
   if (el) { el.textContent = msg; el.classList.add('show'); }
 }
 function clearErrors() {
-  document.querySelectorAll('.field-error').forEach(e => { e.textContent=''; e.classList.remove('show'); });
+  document.querySelectorAll('.field-error').forEach(e => { e.textContent = ''; e.classList.remove('show'); });
 }
 
 // =============================================
@@ -40,8 +61,8 @@ function renderSavedAccounts() {
   const list = document.getElementById('saved-accounts-list');
   if (!wrap||!list) return;
   if (accounts.length===0) { wrap.style.display='none'; return; }
-  wrap.style.display='block';
-  list.innerHTML = accounts.map(a=>`
+  wrap.style.display = 'block';
+  list.innerHTML = accounts.map(a => `
     <div class="saved-acc-item" onclick="switchAccount('${a.eid}')">
       <div style="width:36px;height:36px;border-radius:50%;background:var(--red-light);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:var(--red);">${a.name[0].toUpperCase()}</div>
       <div style="flex:1;"><div style="font-size:14px;font-weight:500;">${a.name}</div><div style="font-size:12px;color:var(--text-sub);">${a.eid}</div></div>
@@ -57,11 +78,10 @@ function switchAccount(eid) {
 // =============================================
 // CIRCLE BUTTON RENDERER
 // =============================================
-function renderCircleBtn(type, isDisabled, isDone, color, glowColor, icon, label) {
+function renderCircleBtn(type, isDisabled, isDone, color, glowColor, glowAnimName, icon, label) {
   const circumference = 2 * Math.PI * 40;
   const ringColor = isDone ? '#22C55E' : isDisabled ? '#D1D5DB' : color;
-  const glowAnim = !isDisabled && !isDone ? `box-shadow:0 0 0 3px ${glowColor}, 0 0 16px ${glowColor}80;` : '';
-  const pulseStyle = !isDisabled && !isDone ? `animation:glowPulse 2s ease-in-out infinite;` : '';
+  const glowStyle = !isDisabled && !isDone ? `animation:${glowAnimName} 2s ease-in-out infinite;` : '';
 
   return `
     <div class="circle-btn-wrap">
@@ -72,7 +92,7 @@ function renderCircleBtn(type, isDisabled, isDone, color, glowColor, icon, label
             stroke="${ringColor}" stroke-width="5" stroke-linecap="round"
             stroke-dasharray="${circumference}"
             stroke-dashoffset="${isDone ? 0 : circumference}"
-            style="transition:stroke-dashoffset 0.05s linear;"/>
+            style="transition:stroke-dashoffset 0.03s linear;"/>
         </svg>
         <button
           ${isDisabled ? 'disabled' : ''}
@@ -80,19 +100,20 @@ function renderCircleBtn(type, isDisabled, isDone, color, glowColor, icon, label
             background:var(--surface);border:none;
             cursor:${isDisabled ? 'default' : 'pointer'};
             display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-            opacity:${isDisabled ? '0.4' : '1'};
-            ${glowAnim}${pulseStyle}"
-          onmousedown="if(!this.disabled)startHold('${type}',this)"
+            opacity:${isDisabled ? '0.4' : '1'};${glowStyle}"
+          onmousedown="if(!this.disabled) startHold('${type}',this)"
           ontouchstart="if(!this.disabled){event.preventDefault();startHold('${type}',this)}"
-          onmouseup="cancelHold(this)" onmouseleave="cancelHold(this)"
-          ontouchend="cancelHold(this)" ontouchcancel="cancelHold(this)"
+          onmouseup="endHold(this)"
+          onmouseleave="endHold(this)"
+          ontouchend="endHold(this)"
+          ontouchcancel="endHold(this)"
         >
           <span style="font-size:24px;">${isDone ? '✓' : icon}</span>
           <span style="font-size:11px;font-weight:600;color:${isDisabled ? '#9CA3AF' : color};">${label}</span>
         </button>
       </div>
       <span style="font-size:10px;color:var(--text-sub);margin-top:5px;">
-        ${isDone ? '✓ Done' : isDisabled ? 'Not available' : 'Hold to ' + label.toLowerCase()}
+        ${isDone ? '✓ Done' : isDisabled ? 'Not available' : 'Hold to submit'}
       </span>
     </div>`;
 }
@@ -103,8 +124,6 @@ function renderCircleBtn(type, isDisabled, isDone, color, glowColor, icon, label
 function renderDashboard() {
   const user = getCurrentUser();
   if (!user) return;
-
-  // 6AM reset check
   shouldResetToday();
 
   const today = getTodayRecord(user.eid);
@@ -112,10 +131,6 @@ function renderDashboard() {
   const checkedOut = today && today.checkOut;
   const office = getOfficeLocation();
 
-  // Check-in/out button states:
-  // Both live → only if no record or after checkout (reset at 6am)
-  // After check-in: in=done, out=live
-  // After check-out: both=done (reset at 6am next day)
   const inDone = !!checkedIn;
   const outDone = !!checkedOut;
   const inDisabled = inDone || !office;
@@ -130,8 +145,10 @@ function renderDashboard() {
     const d = new Date(date+'T00:00:00');
     const dayName = d.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
     const present = record && record.checkIn;
-    const isDayOff = record && record.status === 'dayoff';
-    const isExchange = record && record.status === 'exchange';
+    const selDay = d.toLocaleDateString('en-US', {weekday:'long'});
+    const weeklyOff = getWeeklyOffForEID(user.eid);
+    const isDayOff = (weeklyOff && weeklyOff.toLowerCase()===selDay.toLowerCase()) || (record && record.status==='dayoff');
+    const isExchange = record && record.status==='exchange';
     let pillClass='pill-absent', pillLabel=t('lbl-absent');
     if (present) { pillClass='pill-present'; pillLabel=t('lbl-present'); }
     if (isDayOff) { pillClass='pill-dayoff'; pillLabel=t('lbl-dayoff'); }
@@ -149,11 +166,12 @@ function renderDashboard() {
     <div class="dash-header">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div>
+          <img src="logo.png" style="height:22px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.85;margin-bottom:8px;display:block;" alt="Pathao"/>
           <div class="dash-greeting">${getGreeting()},</div>
           <div class="dash-name">${user.name}</div>
           <div class="dash-eid">${user.eid}</div>
         </div>
-        <div class="avatar-wrap" onclick="renderSettings();showScreen('screen-settings')">
+        <div class="avatar-wrap" onclick="navigateTo('screen-settings');renderSettings();">
           <div class="avatar-circle">${user.name[0].toUpperCase()}</div>
           <div class="avatar-gear">⚙</div>
         </div>
@@ -175,14 +193,14 @@ function renderDashboard() {
     </div>
 
     <div style="display:flex;justify-content:center;gap:32px;padding:16px 0 20px;">
-      ${renderCircleBtn('checkin', inDisabled, inDone, '#00A07A', '#9FE1CB', '✓', t('lbl-checkin'))}
-      ${renderCircleBtn('checkout', outDisabled, outDone, '#B45309', '#FAC775', '✕', t('lbl-checkout'))}
+      ${renderCircleBtn('checkin', inDisabled, inDone, '#00A07A', '#9FE1CB', 'glowPulseGreen', '✓', t('lbl-checkin'))}
+      ${renderCircleBtn('checkout', outDisabled, outDone, '#B45309', '#FAC775', 'glowPulseAmber', '✕', t('lbl-checkout'))}
     </div>
 
     <div style="margin:0 16px 24px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <span style="font-size:12px;font-weight:600;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.5px;">${t('lbl-history')}</span>
-        <button class="view-all-btn" onclick="renderFullHistory()">${t('lbl-view-all')}</button>
+        <button class="view-all-btn" onclick="renderFullHistory();navigateTo('screen-history');">${t('lbl-view-all')}</button>
       </div>
       <div class="card" style="padding:0 16px;">${historyHTML}</div>
     </div>
@@ -190,7 +208,7 @@ function renderDashboard() {
 }
 
 // =============================================
-// FULL HISTORY (Employee) - FIXED
+// FULL HISTORY
 // =============================================
 function renderFullHistory() {
   const user = getCurrentUser();
@@ -202,14 +220,16 @@ function renderFullHistory() {
     const allRecords = getAttendance().filter(r => r.eid===user.eid && isInCycle(r.date, cycle));
     const dates = [];
     let d = new Date(cycle.start);
-    while (d <= cycle.end && d <= new Date()) { dates.push(getDateStr(new Date(d))); d.setDate(d.getDate()+1); }
+    while (d<=cycle.end && d<=new Date()) { dates.push(getDateStr(new Date(d))); d.setDate(d.getDate()+1); }
 
     const rows = dates.reverse().map(date => {
       const rec = allRecords.find(r => r.date===date);
       const dt = new Date(date+'T00:00:00');
       const dayName = dt.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
+      const selDay = dt.toLocaleDateString('en-US', {weekday:'long'});
+      const weeklyOff = getWeeklyOffForEID(user.eid);
       const present = rec && rec.checkIn;
-      const isDayOff = rec && rec.status==='dayoff';
+      const isDayOff = (weeklyOff && weeklyOff.toLowerCase()===selDay.toLowerCase()) || (rec && rec.status==='dayoff');
       const isExchange = rec && rec.status==='exchange';
       let pillClass='pill-absent', pillLabel='Absent';
       if (present) { pillClass='pill-present'; pillLabel='Present'; }
@@ -217,8 +237,8 @@ function renderFullHistory() {
       if (isExchange) { pillClass='pill-exchange'; pillLabel='Exchange'; }
       return `<div class="day-row">
         <div>
-          <div style="font-size:13px;color:var(--text);">${dayName}</div>
-          ${present ? `<div style="font-size:11px;color:var(--text-sub);margin-top:1px;">${rec.checkIn}${rec.checkOut?' – '+rec.checkOut:''}</div>` : ''}
+          <div style="font-size:13px;">${dayName}</div>
+          ${present ? `<div style="font-size:11px;color:var(--text-sub);">${rec.checkIn}${rec.checkOut?' – '+rec.checkOut:''}</div>` : ''}
         </div>
         <span class="status-pill ${pillClass}">${pillLabel}</span>
       </div>`;
@@ -226,14 +246,12 @@ function renderFullHistory() {
 
     document.getElementById('history-content').innerHTML = `
       <div class="month-tabs">
-        ${cycles.map((c,i) => `<button class="month-tab ${i===idx?'active':''}" onclick="renderFullHistoryIdx(${i})">${c.label}</button>`).join('')}
+        ${cycles.map((c,i) => `<button class="month-tab ${i===idx?'active':''}" onclick="renderHistoryByIdx(${i})">${c.label}</button>`).join('')}
       </div>
       <div class="card" style="padding:0 16px;">${rows || '<div style="padding:16px;color:var(--text-sub);">No records found.</div>'}</div>`;
   }
-
-  window.renderFullHistoryIdx = render;
+  window.renderHistoryByIdx = render;
   render(0);
-  showScreen('screen-history');
 }
 
 // =============================================
@@ -251,7 +269,7 @@ function renderSettings() {
     <div style="margin-bottom:14px;">
       <div style="font-size:11px;font-weight:600;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Profile</div>
       <div class="card">
-        <div class="field"><label>Full Name</label><input type="text" id="set-name" value="${user.name}" /></div>
+        <div class="field"><label>Full Name</label><input type="text" id="set-name" value="${user.name}"/></div>
         <button class="btn btn-red" onclick="saveProfile()">Save Changes</button>
       </div>
     </div>
@@ -260,10 +278,8 @@ function renderSettings() {
       <div style="font-size:11px;font-weight:600;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Change PIN</div>
       <div class="card">
         <div class="field"><label>New PIN</label>
-          <div style="position:relative;">
-            <input type="password" id="set-pin" placeholder="••••" maxlength="4" inputmode="numeric" style="padding-right:44px;"/>
-            <button onclick="togglePass('set-pin',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
-          </div>
+          <div style="position:relative;"><input type="password" id="set-pin" placeholder="••••" maxlength="4" inputmode="numeric" style="padding-right:44px;"/>
+          <button onclick="togglePass('set-pin',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button></div>
           <div class="field-error" id="err-set-pin"></div>
         </div>
         <button class="btn btn-red" onclick="savePIN()">Change PIN</button>
@@ -274,16 +290,12 @@ function renderSettings() {
       <div style="font-size:11px;font-weight:600;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">Change Password</div>
       <div class="card">
         <div class="field"><label>Current Password</label>
-          <div style="position:relative;">
-            <input type="password" id="set-old-pass" placeholder="Current password" style="padding-right:44px;"/>
-            <button onclick="togglePass('set-old-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
-          </div>
+          <div style="position:relative;"><input type="password" id="set-old-pass" placeholder="Current password" style="padding-right:44px;"/>
+          <button onclick="togglePass('set-old-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button></div>
         </div>
         <div class="field"><label>New Password</label>
-          <div style="position:relative;">
-            <input type="password" id="set-new-pass" placeholder="Min 8 chars, letters + numbers" style="padding-right:44px;"/>
-            <button onclick="togglePass('set-new-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
-          </div>
+          <div style="position:relative;"><input type="password" id="set-new-pass" placeholder="Min 8 chars, letters + numbers" style="padding-right:44px;"/>
+          <button onclick="togglePass('set-new-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button></div>
           <div class="field-error" id="err-set-pass"></div>
         </div>
         <button class="btn btn-red" onclick="savePassword()">Change Password</button>
@@ -339,34 +351,33 @@ function renderAdminDashboard() {
   const users=getUsers(), allAtt=getAttendance();
   const recs=allAtt.filter(r=>r.date===adminSelectedDate);
   const pending=getPendingUsers();
-  const dayOffs=getDayOffs();
-  const office=getOfficeLocation();
-  const radius=getOfficeRadius();
+  const resources=getResources();
+  const totalResources=getTotalResources();
   const curCycle=getCurrentCycle(), prevCycle=getPrevCycle();
 
   let presentCount=0, absentCount=0, dayoffCount=0;
   const activeUsers=users.filter(u=>u.status!=='blocked');
   activeUsers.forEach(u=>{
     const rec=recs.find(r=>r.eid===u.eid);
-    const dow=dayOffs.find(d=>d.eid===u.eid);
     const selDay=new Date(adminSelectedDate+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'});
-    const isWeeklyOff=dow&&dow.weeklyOff&&dow.weeklyOff.toLowerCase()===selDay.toLowerCase();
+    const weeklyOff=getWeeklyOffForEID(u.eid);
+    const isWeeklyOff=weeklyOff&&weeklyOff.toLowerCase()===selDay.toLowerCase();
     if(rec&&rec.checkIn) presentCount++;
     else if(isWeeklyOff||(rec&&rec.status==='dayoff')) dayoffCount++;
     else absentCount++;
   });
-  const pendingAtt=Math.max(0, activeUsers.length-presentCount-dayoffCount);
+  const pendingAtt=Math.max(0, totalResources-presentCount-dayoffCount);
 
   const empRows=users.map(u=>{
     const rec=recs.find(r=>r.eid===u.eid);
-    const dow=dayOffs.find(d=>d.eid===u.eid);
     const selDay=new Date(adminSelectedDate+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'});
-    const isWeeklyOff=dow&&dow.weeklyOff&&dow.weeklyOff.toLowerCase()===selDay.toLowerCase();
+    const weeklyOff=getWeeklyOffForEID(u.eid);
+    const isWeeklyOff=weeklyOff&&weeklyOff.toLowerCase()===selDay.toLowerCase();
     const isPresent=rec&&rec.checkIn;
     const isDayOff=isWeeklyOff||(rec&&rec.status==='dayoff');
     const isExchange=rec&&rec.status==='exchange';
     const isBlocked=u.status==='blocked';
-    let pillClass='pill-absent', pillLabel='Absent';
+    let pillClass='pill-absent',pillLabel='Absent';
     if(isPresent){pillClass='pill-present';pillLabel='Present';}
     if(isDayOff){pillClass='pill-dayoff';pillLabel='Day off';}
     if(isExchange){pillClass='pill-exchange';pillLabel='Exchange';}
@@ -375,14 +386,16 @@ function renderAdminDashboard() {
       <div style="width:32px;height:32px;border-radius:50%;background:var(--red-light);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--red);flex-shrink:0;">${u.name[0].toUpperCase()}</div>
       <div style="flex:1;margin-left:8px;">
         <div style="font-size:13px;font-weight:500;">${u.name} <span style="font-size:11px;color:var(--text-sub);">${u.eid}</span></div>
-        <div style="font-size:11px;color:var(--text-sub);">${isPresent?`${rec.checkIn}${rec.checkOut?' – '+rec.checkOut:''}`:isDayOff?'Day off':isExchange?'Exchange':isBlocked?'Blocked':'No check in'}${isPresent&&rec.distanceFromOffice&&rec.distanceFromOffice!=='N/A'?' · 📍'+rec.distanceFromOffice:''}</div>
+        <div style="font-size:11px;color:var(--text-sub);">${isPresent?`${rec.checkIn}${rec.checkOut?' – '+rec.checkOut:''}`:isDayOff?`Day off${weeklyOff?' ('+weeklyOff+')':''}`:isExchange?'Exchange':isBlocked?'Blocked':'No check in'}${isPresent&&rec.distanceFromOffice&&rec.distanceFromOffice!=='N/A'?' · 📍'+rec.distanceFromOffice:''}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
         <span class="status-pill ${pillClass}" style="${isBlocked?'background:#F3F4F6;color:#6B7280;':''}">${pillLabel}</span>
         ${isDayOff&&!isExchange?`<span onclick="markExchange('${u.eid}')" style="font-size:10px;color:#185FA5;background:#E6F1FB;padding:2px 7px;border-radius:20px;cursor:pointer;">Exchange</span>`:''}
         ${isExchange?`<span onclick="undoExchange('${u.eid}')" style="font-size:10px;color:#6B7280;background:#F3F4F6;padding:2px 7px;border-radius:20px;cursor:pointer;">Undo</span>`:''}
-        ${isBlocked?`<span onclick="unblockUser('${u.eid}');renderAdminDashboard();" style="font-size:10px;color:#0F6E56;background:var(--green-light);padding:2px 7px;border-radius:20px;cursor:pointer;">Unblock</span>`:
-        `<span onclick="blockUser('${u.eid}');renderAdminDashboard();" style="font-size:10px;color:#A32D2D;background:#FCEBEB;padding:2px 7px;border-radius:20px;cursor:pointer;">Block</span>`}
+        ${isBlocked
+          ?`<span onclick="unblockUser('${u.eid}');renderAdminDashboard();" style="font-size:10px;color:#0F6E56;background:var(--green-light);padding:2px 7px;border-radius:20px;cursor:pointer;">Unblock</span>`
+          :`<span onclick="blockUser('${u.eid}');renderAdminDashboard();" style="font-size:10px;color:#A32D2D;background:#FCEBEB;padding:2px 7px;border-radius:20px;cursor:pointer;">Block</span>`}
+        <span onclick="openResetPassword('${u.eid}','${u.name}')" style="font-size:10px;color:#6B7280;background:#F3F4F6;padding:2px 7px;border-radius:20px;cursor:pointer;">Reset Pass</span>
         <span onclick="viewEmpHistory('${u.eid}','${u.name}')" style="font-size:10px;color:var(--indigo);background:var(--indigo-light);padding:2px 7px;border-radius:20px;cursor:pointer;">History</span>
       </div>
     </div>`;
@@ -397,16 +410,17 @@ function renderAdminDashboard() {
       </div>
     </div>`).join('');
 
-  document.getElementById('admin-content').innerHTML = `
+  document.getElementById('admin-content').innerHTML=`
     <div class="admin-header">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div>
+          <img src="logo.png" style="height:20px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.85;margin-bottom:6px;display:block;" alt="Pathao"/>
           <div style="font-size:11px;color:rgba(255,255,255,0.7);">Central Inbound AttendX</div>
           <div style="font-size:18px;font-weight:700;color:white;margin-top:2px;">${new Date(adminSelectedDate+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</div>
         </div>
         <div style="position:relative;">
           <button onclick="toggleShield()" style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.15);border:none;cursor:pointer;color:white;font-size:20px;display:flex;align-items:center;justify-content:center;">🛡</button>
-          <div id="shield-drop" style="position:absolute;top:46px;right:0;background:var(--surface);border-radius:var(--radius-sm);border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,0.12);padding:6px;min-width:190px;z-index:100;display:none;">
+          <div id="shield-drop" style="position:absolute;top:46px;right:0;background:var(--surface);border-radius:var(--radius-sm);border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,0.12);padding:6px;min-width:200px;z-index:100;display:none;">
             <div onclick="selectAdminCycle('cur');closeShield()" style="padding:9px 12px;border-radius:8px;font-size:13px;cursor:pointer;">📅 ${curCycle.label}</div>
             <div onclick="selectAdminCycle('prev');closeShield()" style="padding:9px 12px;border-radius:8px;font-size:13px;cursor:pointer;">📅 ${prevCycle.label}</div>
             <div style="border-top:1px solid var(--border);margin:4px 0;"></div>
@@ -417,7 +431,7 @@ function renderAdminDashboard() {
         </div>
       </div>
       <div class="stats-grid">
-        <div class="stat-box"><div class="stat-label">Total resources</div><div class="stat-val">${users.length}</div></div>
+        <div class="stat-box"><div class="stat-label">Total resources</div><div class="stat-val">${totalResources}</div></div>
         <div class="stat-box"><div class="stat-label">Present</div><div class="stat-val green">${presentCount}</div></div>
         <div class="stat-box"><div class="stat-label">Absent</div><div class="stat-val red">${absentCount}</div></div>
         <div class="stat-box"><div class="stat-label">Day off</div><div class="stat-val yellow">${dayoffCount}</div></div>
@@ -445,25 +459,51 @@ function renderAdminDashboard() {
   `;
 }
 
+// =============================================
+// ADMIN HELPERS
+// =============================================
+function openResetPassword(eid, name) {
+  const el=document.createElement('div');
+  el.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:flex-end;';
+  el.innerHTML=`
+    <div style="background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;padding:24px;width:100%;max-width:430px;margin:0 auto;">
+      <div style="font-size:16px;font-weight:700;margin-bottom:4px;">🔑 Reset Password</div>
+      <div style="font-size:13px;color:var(--text-sub);margin-bottom:16px;">${name} · ${eid}</div>
+      <div class="field"><label>New Password</label>
+        <div style="position:relative;"><input type="password" id="reset-pass" placeholder="Min 8 chars, letters + numbers" style="width:100%;padding:13px 44px 13px 16px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;outline:none;"/>
+        <button onclick="togglePass('reset-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button></div>
+        <div class="field-error" id="err-reset-pass"></div>
+      </div>
+      <button onclick="doResetPassword('${eid}')" class="btn btn-red" style="margin-bottom:8px;">Reset Password</button>
+      <button onclick="this.closest('div[style*=fixed]').remove()" class="btn btn-ghost">Cancel</button>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+function doResetPassword(eid) {
+  const newPass=document.getElementById('reset-pass').value;
+  const errEl=document.getElementById('err-reset-pass');
+  const check=validatePassword(newPass);
+  if(check==='short'){errEl.textContent=t('err-pass-short');errEl.classList.add('show');return;}
+  if(check==='format'){errEl.textContent=t('err-pass-format');errEl.classList.add('show');return;}
+  adminResetPassword(eid, newPass);
+  document.querySelectorAll('div[style*="position:fixed"]').forEach(e=>e.remove());
+  showToast('Password reset successfully!','success');
+}
+
 function openAdminPassChange() {
-  const el = document.createElement('div');
+  const el=document.createElement('div');
   el.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:flex-end;';
   el.innerHTML=`
     <div style="background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;padding:24px;width:100%;max-width:430px;margin:0 auto;">
       <div style="font-size:16px;font-weight:700;margin-bottom:16px;">🔑 Change Admin Password</div>
-      <div class="field">
-        <label>Current Password</label>
-        <div style="position:relative;">
-          <input type="password" id="admin-old-pass" placeholder="Current password" style="width:100%;padding:13px 44px 13px 16px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;outline:none;"/>
-          <button onclick="togglePass('admin-old-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
-        </div>
+      <div class="field"><label>Current Password</label>
+        <div style="position:relative;"><input type="password" id="admin-old-pass" placeholder="Current password" style="width:100%;padding:13px 44px 13px 16px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;outline:none;"/>
+        <button onclick="togglePass('admin-old-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button></div>
       </div>
-      <div class="field">
-        <label>New Password</label>
-        <div style="position:relative;">
-          <input type="password" id="admin-new-pass" placeholder="Min 8 chars, letters + numbers" style="width:100%;padding:13px 44px 13px 16px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;outline:none;"/>
-          <button onclick="togglePass('admin-new-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button>
-        </div>
+      <div class="field"><label>New Password</label>
+        <div style="position:relative;"><input type="password" id="admin-new-pass" placeholder="Min 8 chars, letters + numbers" style="width:100%;padding:13px 44px 13px 16px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;outline:none;"/>
+        <button onclick="togglePass('admin-new-pass',this)" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;">👁</button></div>
         <div class="field-error" id="err-admin-pass"></div>
       </div>
       <button onclick="saveAdminPass()" class="btn btn-indigo" style="margin-bottom:8px;">Save New Password</button>
@@ -472,17 +512,17 @@ function openAdminPassChange() {
   document.body.appendChild(el);
 }
 
-async function saveAdminPass() {
-  const oldPass = document.getElementById('admin-old-pass').value;
-  const newPass = document.getElementById('admin-new-pass').value;
-  const errEl = document.getElementById('err-admin-pass');
-  if (!await verifyAdminPassword(oldPass)) { errEl.textContent='Current password is incorrect'; errEl.classList.add('show'); return; }
-  const check = validatePassword(newPass);
-  if (check==='short') { errEl.textContent=t('err-pass-short'); errEl.classList.add('show'); return; }
-  if (check==='format') { errEl.textContent=t('err-pass-format'); errEl.classList.add('show'); return; }
+function saveAdminPass() {
+  const oldPass=document.getElementById('admin-old-pass').value;
+  const newPass=document.getElementById('admin-new-pass').value;
+  const errEl=document.getElementById('err-admin-pass');
+  if(!verifyAdminPassword(oldPass)){errEl.textContent='Current password is incorrect';errEl.classList.add('show');return;}
+  const check=validatePassword(newPass);
+  if(check==='short'){errEl.textContent=t('err-pass-short');errEl.classList.add('show');return;}
+  if(check==='format'){errEl.textContent=t('err-pass-format');errEl.classList.add('show');return;}
   setAdminPassword(newPass);
   document.querySelectorAll('div[style*="position:fixed"]').forEach(e=>e.remove());
-  showToast('Admin password changed!', 'success');
+  showToast('Admin password changed!','success');
 }
 
 function openLocationSetup() {
@@ -493,8 +533,7 @@ function openLocationSetup() {
     <div style="background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;padding:24px;width:100%;max-width:430px;margin:0 auto;">
       <div style="font-size:16px;font-weight:700;margin-bottom:16px;">📍 Office Location & Radius</div>
       ${office?`<div style="font-size:12px;color:var(--text-sub);margin-bottom:12px;background:var(--bg);padding:8px 12px;border-radius:8px;">Current: ${office.lat.toFixed(5)}, ${office.lng.toFixed(5)}</div>`:'<div style="font-size:12px;color:var(--error);margin-bottom:12px;">⚠ No location set yet</div>'}
-      <div class="field" style="margin-bottom:14px;">
-        <label>Check-in Radius (meters)</label>
+      <div class="field"><label>Check-in Radius (meters)</label>
         <input type="number" id="radius-input" value="${radius}" min="50" max="2000" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;outline:none;"/>
         <div style="font-size:11px;color:var(--text-sub);margin-top:4px;">Recommended: 200m</div>
       </div>
@@ -519,16 +558,11 @@ function captureOfficeLocation(radiusVal) {
   );
 }
 
-function toggleShield() {
-  const d=document.getElementById('shield-drop');
-  if(d) d.style.display=d.style.display==='none'?'block':'none';
-}
-function closeShield() { const d=document.getElementById('shield-drop'); if(d) d.style.display='none'; }
-function openDatePicker() {
-  const p=document.getElementById('date-picker');
-  if(p){p.value=adminSelectedDate; p.showPicker?p.showPicker():p.click();}
-}
+function toggleShield() { const d=document.getElementById('shield-drop'); if(d)d.style.display=d.style.display==='none'?'block':'none'; }
+function closeShield() { const d=document.getElementById('shield-drop'); if(d)d.style.display='none'; }
+function openDatePicker() { const p=document.getElementById('date-picker'); if(p){p.value=adminSelectedDate;p.showPicker?p.showPicker():p.click();} }
 function onDateChange(val) { if(val){adminSelectedDate=val;renderAdminDashboard();} }
+
 function markExchange(eid) {
   const u=getUserByEID(eid);
   const rec=getTodayRecord(eid)||{eid,date:adminSelectedDate,name:u?.name||''};
@@ -541,6 +575,7 @@ function undoExchange(eid) {
   if(idx!==-1){delete records[idx].status;saveAttendance(records);}
   renderAdminDashboard();
 }
+
 function viewEmpHistory(eid, name) {
   const cycles=[getCurrentCycle(),getPrevCycle()];
   document.getElementById('admin-history-sub').textContent=name+' · '+eid;
@@ -553,7 +588,11 @@ function viewEmpHistory(eid, name) {
       const rec=allRecs.find(r=>r.date===date);
       const dt=new Date(date+'T00:00:00');
       const dayName=dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
-      const present=rec&&rec.checkIn,isDayOff=rec&&rec.status==='dayoff',isExchange=rec&&rec.status==='exchange';
+      const selDay=dt.toLocaleDateString('en-US',{weekday:'long'});
+      const weeklyOff=getWeeklyOffForEID(eid);
+      const present=rec&&rec.checkIn;
+      const isDayOff=(weeklyOff&&weeklyOff.toLowerCase()===selDay.toLowerCase())||(rec&&rec.status==='dayoff');
+      const isExchange=rec&&rec.status==='exchange';
       let pillClass='pill-absent',pillLabel='Absent';
       if(present){pillClass='pill-present';pillLabel='Present';}
       if(isDayOff){pillClass='pill-dayoff';pillLabel='Day off';}
@@ -564,13 +603,14 @@ function viewEmpHistory(eid, name) {
       </div>`;
     }).join('');
     document.getElementById('admin-history-content').innerHTML=`
-      <div class="month-tabs">${cycles.map((c,i)=>`<button class="month-tab ${i===idx?'active':''}" onclick="viewEmpHistoryIdx(${i},'${eid}','${name}')">${c.label}</button>`).join('')}</div>
+      <div class="month-tabs">${cycles.map((c,i)=>`<button class="month-tab ${i===idx?'active':''}" onclick="viewEmpHistoryByIdx(${i},'${eid}','${name}')">${c.label}</button>`).join('')}</div>
       <div class="card" style="padding:0 16px;">${rows||'<div style="padding:16px;color:var(--text-sub);">No records.</div>'}</div>`;
   }
-  window.viewEmpHistoryIdx = (idx, e, n) => viewEmpHistory(e, n);
+  window.viewEmpHistoryByIdx=(idx,e,n)=>{document.getElementById('admin-history-sub').textContent=n+' · '+e;render(idx);};
   render(0);
-  showScreen('screen-admin-history');
+  navigateTo('screen-admin-history');
 }
+
 function selectAdminCycle(which) {
   const cycle=which==='cur'?getCurrentCycle():getPrevCycle();
   const users=getUsers(),allAtt=getAttendance();
@@ -588,8 +628,9 @@ function selectAdminCycle(which) {
     </div>`;
   }).join('');
   document.getElementById('admin-history-content').innerHTML=`<div class="card" style="padding:0 16px;">${rows||'<div style="padding:16px;color:var(--text-sub);">No data.</div>'}</div>`;
-  showScreen('screen-admin-history');
+  navigateTo('screen-admin-history');
 }
+
 function doAdminLogout() {
   sessionStorage.removeItem('admin_logged_in');
   showScreen('screen-login');
@@ -601,15 +642,14 @@ function doAdminLogout() {
 document.addEventListener('DOMContentLoaded', ()=>{
   initRefreshProtection();
   if(shouldClearOldData()) clearPreviousCycleData();
+  fetchResourcesFromSheet();
 
   setTimeout(()=>{
-    // Check admin session
     if(sessionStorage.getItem('admin_logged_in')==='1') {
-      adminSelectedDate = getDateStr();
+      adminSelectedDate=getDateStr();
       renderAdminDashboard();
       showScreen('screen-admin');
-      applyLang();
-      return;
+      applyLang(); return;
     }
     const user=getCurrentUser();
     if(user){ renderDashboard(); showScreen('screen-dashboard'); }
