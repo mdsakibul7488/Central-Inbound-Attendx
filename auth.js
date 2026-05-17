@@ -30,7 +30,9 @@ function doSignup() {
 
   if (!name) { showFieldError('err-name', t('err-name-req')); valid=false; }
   if (!validateEID(eid)) { showFieldError('err-eid', t('err-eid-format')); valid=false; }
-  else if (getUserByEID(eid) || getPendingUsers().find(u=>u.eid===eid)) { showFieldError('err-eid', t('err-eid-taken')); valid=false; }
+  else if (getUserByEID(eid) || getPendingUsers().find(u=>u.eid===eid)) {
+    showFieldError('err-eid', t('err-eid-taken')); valid=false;
+  }
   const pc = validatePassword(pass);
   if (pc==='short') { showFieldError('err-pass', t('err-pass-short')); valid=false; }
   else if (pc==='format') { showFieldError('err-pass', t('err-pass-format')); valid=false; }
@@ -102,16 +104,16 @@ async function checkGeofence() {
 
 // =============================================
 // HOLD-TO-SUBMIT CIRCLE
-// Circle fills completely → then fingerprint/PIN
+// পুরো হলে → fingerprint try, না হলে PIN
 // =============================================
 let holdAnimFrame = null;
-let holdType = null;
 let holdFinished = false;
+let currentHoldType = null;
 
 function startHold(type, btnEl) {
   if (btnEl.disabled) return;
-  holdType = type;
   holdFinished = false;
+  currentHoldType = type;
   const duration = 2000;
   const start = performance.now();
   const outer = btnEl.closest('.circle-outer');
@@ -120,22 +122,30 @@ function startHold(type, btnEl) {
 
   function animate(now) {
     const progress = Math.min((now - start) / duration, 1);
-    if (circle) circle.style.strokeDashoffset = circumference * (1 - progress);
+    if (circle) {
+      circle.style.strokeDashoffset = circumference * (1 - progress);
+      // Make stroke more visible while animating
+      circle.style.opacity = '1';
+    }
     if (progress < 1) {
       holdAnimFrame = requestAnimationFrame(animate);
     } else {
       holdFinished = true;
-      // Circle complete — now trigger fingerprint or PIN
-      onCircleComplete(type, btnEl);
+      // Haptic feedback if available
+      if (navigator.vibrate) navigator.vibrate(50);
     }
   }
   holdAnimFrame = requestAnimationFrame(animate);
 }
 
 function endHold(btnEl) {
-  // If circle not complete yet, cancel and reset
-  if (!holdFinished) {
-    if (holdAnimFrame) { cancelAnimationFrame(holdAnimFrame); holdAnimFrame = null; }
+  if (holdAnimFrame) { cancelAnimationFrame(holdAnimFrame); holdAnimFrame = null; }
+
+  if (holdFinished) {
+    holdFinished = false;
+    onCircleComplete(currentHoldType, btnEl);
+  } else {
+    // Reset circle
     const outer = btnEl.closest('.circle-outer');
     const circle = outer ? outer.querySelector('.progress-ring-circle') : null;
     if (circle) circle.style.strokeDashoffset = 2 * Math.PI * 40;
@@ -143,32 +153,28 @@ function endHold(btnEl) {
 }
 
 async function onCircleComplete(type, btnEl) {
-  // Check geofence first
   const office = getOfficeLocation();
-  if (!office) { showToast('Admin has not set office location yet.', 'error'); resetCircle(btnEl); return; }
-
+  if (!office) {
+    showToast('Admin has not set office location yet.', 'error');
+    resetCircleBtn(btnEl); return;
+  }
   const geo = await checkGeofence();
   if (!geo.allowed) {
     if (geo.reason === 'too_far') showToast(`You are ${geo.distance}m away. Must be within ${getOfficeRadius()}m.`, 'error');
     else if (geo.reason === 'location_denied') showToast(t('err-location'), 'error');
     else showToast('Admin has not set office location yet.', 'error');
-    resetCircle(btnEl);
-    renderDashboard();
-    return;
+    resetCircleBtn(btnEl);
+    renderDashboard(); return;
   }
 
-  // Geofence passed — now fingerprint or PIN
   pendingGeo = geo;
   pinAction = type;
 
-  if (window.PublicKeyCredential) {
-    tryFingerprint(type, geo);
-  } else {
-    openPINScreen(type, geo);
-  }
+  // Try fingerprint via WebAuthn
+  await tryBiometric(type, geo);
 }
 
-function resetCircle(btnEl) {
+function resetCircleBtn(btnEl) {
   holdFinished = false;
   const outer = btnEl ? btnEl.closest('.circle-outer') : null;
   const circle = outer ? outer.querySelector('.progress-ring-circle') : null;
@@ -176,26 +182,115 @@ function resetCircle(btnEl) {
 }
 
 // =============================================
-// FINGERPRINT / PIN
+// BIOMETRIC (WebAuthn) — proper implementation
 // =============================================
 let pendingGeo = null;
 let pinAction = null;
 
-async function tryFingerprint(type, geo) {
-  pendingGeo = geo; pinAction = type;
+async function tryBiometric(type, geo) {
+  // Check if WebAuthn is supported
+  if (!window.PublicKeyCredential) {
+    openPINScreen(type, geo); return;
+  }
+
+  // Check if platform authenticator (fingerprint/face) is available
+  try {
+    const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    if (!available) {
+      openPINScreen(type, geo); return;
+    }
+  } catch {
+    openPINScreen(type, geo); return;
+  }
+
+  // Check if user already has a registered credential
+  const user = getCurrentUser();
+  const credId = localStorage.getItem(`cred_${user.eid}`);
+
+  if (!credId) {
+    // No credential registered yet — register first
+    const registered = await registerBiometric(user);
+    if (!registered) {
+      openPINScreen(type, geo); return;
+    }
+  }
+
+  // Authenticate with existing credential
+  await authenticateBiometric(type, geo);
+}
+
+async function registerBiometric(user) {
   try {
     const challenge = new Uint8Array(32);
     crypto.getRandomValues(challenge);
-    const credential = await navigator.credentials.get({
-      publicKey: { challenge, timeout: 30000, userVerification: 'required', rpId: window.location.hostname || 'localhost' }
+    const userId = new TextEncoder().encode(user.eid);
+
+    const credential = await navigator.credentials.create({
+      publicKey: {
+        challenge,
+        rp: { name: 'Central Inbound AttendX', id: window.location.hostname },
+        user: { id: userId, name: user.eid, displayName: user.name },
+        pubKeyCredParams: [{ alg: -7, type: 'public-key' }, { alg: -257, type: 'public-key' }],
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+          userVerification: 'required',
+          residentKey: 'preferred'
+        },
+        timeout: 60000,
+      }
     });
-    if (credential) { showToast(t('msg-fp-success'), 'success'); processAttendance(type, geo); }
+
+    if (credential) {
+      // Save credential ID for this user
+      const credIdB64 = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
+      localStorage.setItem(`cred_${user.eid}`, credIdB64);
+      showToast('Fingerprint registered!', 'success');
+      return true;
+    }
+  } catch (err) {
+    // User cancelled or not supported
+    return false;
+  }
+  return false;
+}
+
+async function authenticateBiometric(type, geo) {
+  try {
+    const user = getCurrentUser();
+    const credIdB64 = localStorage.getItem(`cred_${user.eid}`);
+    const credIdBytes = Uint8Array.from(atob(credIdB64), c => c.charCodeAt(0));
+
+    const challenge = new Uint8Array(32);
+    crypto.getRandomValues(challenge);
+
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge,
+        timeout: 60000,
+        userVerification: 'required',
+        allowCredentials: [{
+          id: credIdBytes,
+          type: 'public-key',
+          transports: ['internal']
+        }],
+        rpId: window.location.hostname
+      }
+    });
+
+    if (assertion) {
+      showToast(t('msg-fp-success'), 'success');
+      processAttendance(type, geo);
+    }
   } catch {
-    // Fingerprint failed or not available — use PIN
+    // Fingerprint failed — fallback to PIN
+    showToast('Fingerprint failed. Using PIN.', 'error');
     openPINScreen(type, geo);
   }
 }
 
+// =============================================
+// PIN SCREEN
+// =============================================
 function openPINScreen(type, geo) {
   pendingGeo = geo; pinAction = type;
   document.getElementById('pin-input').value = '';
