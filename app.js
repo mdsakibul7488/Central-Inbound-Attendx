@@ -1,5 +1,5 @@
 // =============================================
-// SCREEN HISTORY (back button fix)
+// SCREEN HISTORY
 // =============================================
 let screenHistory = [];
 
@@ -18,9 +18,7 @@ function navigateTo(id) {
 }
 
 function goBack() {
-  if (screenHistory.length > 0) {
-    showScreen(screenHistory.pop());
-  }
+  if (screenHistory.length > 0) { showScreen(screenHistory.pop()); }
 }
 
 window.addEventListener('popstate', (e) => { e.preventDefault(); goBack(); });
@@ -76,31 +74,36 @@ function switchAccount(eid) {
 }
 
 // =============================================
-// CIRCLE BUTTON RENDERER
+// CIRCLE BUTTON — deep visible colors + glow
 // =============================================
-function renderCircleBtn(type, isDisabled, isDone, color, glowColor, glowAnimName, icon, label) {
+function renderCircleBtn(type, isDisabled, isDone, strokeColor, glowAnimName, icon, label) {
   const circumference = 2 * Math.PI * 40;
-  const ringColor = isDone ? '#22C55E' : isDisabled ? '#D1D5DB' : color;
-  const glowStyle = !isDisabled && !isDone ? `animation:${glowAnimName} 2s ease-in-out infinite;` : '';
+  const trackColor = '#E5E7EB'; // light grey track
+  const ringColor = isDone ? '#16A34A' : isDisabled ? '#D1D5DB' : strokeColor;
+  const glowStyle = !isDisabled && !isDone
+    ? `animation:${glowAnimName} 1.5s ease-in-out infinite;`
+    : '';
+  const labelColor = isDisabled ? '#9CA3AF' : isDone ? '#16A34A' : strokeColor;
 
   return `
     <div class="circle-btn-wrap">
-      <div class="circle-outer" style="position:relative;width:96px;height:96px;">
-        <svg style="position:absolute;top:0;left:0;transform:rotate(-90deg);" width="96" height="96">
-          <circle cx="48" cy="48" r="40" fill="none" stroke="#F0F1F5" stroke-width="5"/>
-          <circle class="progress-ring-circle" cx="48" cy="48" r="40" fill="none"
-            stroke="${ringColor}" stroke-width="5" stroke-linecap="round"
+      <div class="circle-outer" style="position:relative;width:100px;height:100px;">
+        <svg style="position:absolute;top:0;left:0;transform:rotate(-90deg);" width="100" height="100">
+          <circle cx="50" cy="50" r="40" fill="none" stroke="${trackColor}" stroke-width="6"/>
+          <circle class="progress-ring-circle" cx="50" cy="50" r="40" fill="none"
+            stroke="${ringColor}" stroke-width="6" stroke-linecap="round"
             stroke-dasharray="${circumference}"
             stroke-dashoffset="${isDone ? 0 : circumference}"
             style="transition:stroke-dashoffset 0.03s linear;"/>
         </svg>
         <button
           ${isDisabled ? 'disabled' : ''}
-          style="position:absolute;top:4px;left:4px;width:88px;height:88px;border-radius:50%;
-            background:var(--surface);border:none;
+          style="position:absolute;top:6px;left:6px;width:88px;height:88px;border-radius:50%;
+            background:#FFFFFF;border:none;
             cursor:${isDisabled ? 'default' : 'pointer'};
-            display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-            opacity:${isDisabled ? '0.4' : '1'};${glowStyle}"
+            display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+            opacity:${isDisabled ? '0.4' : '1'};
+            ${glowStyle}"
           onmousedown="if(!this.disabled) startHold('${type}',this)"
           ontouchstart="if(!this.disabled){event.preventDefault();startHold('${type}',this)}"
           onmouseup="endHold(this)"
@@ -108,11 +111,11 @@ function renderCircleBtn(type, isDisabled, isDone, color, glowColor, glowAnimNam
           ontouchend="endHold(this)"
           ontouchcancel="endHold(this)"
         >
-          <span style="font-size:24px;">${isDone ? '✓' : icon}</span>
-          <span style="font-size:11px;font-weight:600;color:${isDisabled ? '#9CA3AF' : color};">${label}</span>
+          <span style="font-size:26px;line-height:1;">${isDone ? '✓' : icon}</span>
+          <span style="font-size:11px;font-weight:700;color:${labelColor};letter-spacing:0.3px;">${label}</span>
         </button>
       </div>
-      <span style="font-size:10px;color:var(--text-sub);margin-top:5px;">
+      <span style="font-size:10px;color:var(--text-sub);margin-top:6px;font-weight:500;">
         ${isDone ? '✓ Done' : isDisabled ? 'Not available' : 'Hold to submit'}
       </span>
     </div>`;
@@ -137,16 +140,16 @@ function renderDashboard() {
   const outDisabled = outDone || !office;
 
   const statusLabel = checkedOut ? t('lbl-checked-out') : checkedIn ? t('lbl-checked-in') : t('lbl-not-marked');
-  const statusColor = checkedOut ? '#A32D2D' : checkedIn ? '#0F6E56' : '#6B7280';
-  const statusBg = checkedOut ? '#FCEBEB' : checkedIn ? 'var(--green-light)' : '#F3F4F6';
+  const statusColor = checkedOut ? '#991B1B' : checkedIn ? '#065F46' : '#6B7280';
+  const statusBg = checkedOut ? '#FEE2E2' : checkedIn ? '#D1FAE5' : '#F3F4F6';
 
   const history = getLast3Days(user.eid);
   const historyHTML = history.map(({date, record}) => {
     const d = new Date(date+'T00:00:00');
     const dayName = d.toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric'});
-    const present = record && record.checkIn;
     const selDay = d.toLocaleDateString('en-US', {weekday:'long'});
     const weeklyOff = getWeeklyOffForEID(user.eid);
+    const present = record && record.checkIn;
     const isDayOff = (weeklyOff && weeklyOff.toLowerCase()===selDay.toLowerCase()) || (record && record.status==='dayoff');
     const isExchange = record && record.status==='exchange';
     let pillClass='pill-absent', pillLabel=t('lbl-absent');
@@ -166,7 +169,7 @@ function renderDashboard() {
     <div class="dash-header">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div>
-          <img src="logo.png" style="height:22px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.85;margin-bottom:8px;display:block;" alt="Pathao"/>
+          <img src="logo.png" style="height:22px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.9;margin-bottom:8px;display:block;" alt="Pathao"/>
           <div class="dash-greeting">${getGreeting()},</div>
           <div class="dash-name">${user.name}</div>
           <div class="dash-eid">${user.eid}</div>
@@ -192,9 +195,9 @@ function renderDashboard() {
       </div>
     </div>
 
-    <div style="display:flex;justify-content:center;gap:32px;padding:16px 0 20px;">
-      ${renderCircleBtn('checkin', inDisabled, inDone, '#00A07A', '#9FE1CB', 'glowPulseGreen', '✓', t('lbl-checkin'))}
-      ${renderCircleBtn('checkout', outDisabled, outDone, '#B45309', '#FAC775', 'glowPulseAmber', '✕', t('lbl-checkout'))}
+    <div style="display:flex;justify-content:center;gap:36px;padding:20px 0 24px;">
+      ${renderCircleBtn('checkin', inDisabled, inDone, '#059669', 'glowPulseGreen', '✓', t('lbl-checkin'))}
+      ${renderCircleBtn('checkout', outDisabled, outDone, '#D97706', 'glowPulseAmber', '✕', t('lbl-checkout'))}
     </div>
 
     <div style="margin:0 16px 24px;">
@@ -351,13 +354,11 @@ function renderAdminDashboard() {
   const users=getUsers(), allAtt=getAttendance();
   const recs=allAtt.filter(r=>r.date===adminSelectedDate);
   const pending=getPendingUsers();
-  const resources=getResources();
   const totalResources=getTotalResources();
   const curCycle=getCurrentCycle(), prevCycle=getPrevCycle();
 
   let presentCount=0, absentCount=0, dayoffCount=0;
-  const activeUsers=users.filter(u=>u.status!=='blocked');
-  activeUsers.forEach(u=>{
+  users.filter(u=>u.status!=='blocked').forEach(u=>{
     const rec=recs.find(r=>r.eid===u.eid);
     const selDay=new Date(adminSelectedDate+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'});
     const weeklyOff=getWeeklyOffForEID(u.eid);
@@ -414,7 +415,7 @@ function renderAdminDashboard() {
     <div class="admin-header">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div>
-          <img src="logo.png" style="height:20px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.85;margin-bottom:6px;display:block;" alt="Pathao"/>
+          <img src="logo.png" style="height:20px;object-fit:contain;filter:brightness(0) invert(1);opacity:0.9;margin-bottom:6px;display:block;" alt="Pathao"/>
           <div style="font-size:11px;color:rgba(255,255,255,0.7);">Central Inbound AttendX</div>
           <div style="font-size:18px;font-weight:700;color:white;margin-top:2px;">${new Date(adminSelectedDate+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</div>
         </div>
